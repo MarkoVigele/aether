@@ -2,6 +2,8 @@
 
 A living particle field. Thousands of glowing agents share a force matrix, collide with mass and restitution, and steer like a small ecosystem: they flock, hunt, flee, feed, age, mutate, and split.
 
+**Play live:** [https://markovigele.github.io/aether/](https://markovigele.github.io/aether/)
+
 ## Run locally
 
 On a Mac you can stay in the project folder and double-click:
