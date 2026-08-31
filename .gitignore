@@ -1,0 +1,8 @@
+dist
+dist-ssr
+*.local
+aether-saves.json
+meine-saves.json
+
+# Editor directories and files
+.vscode/*

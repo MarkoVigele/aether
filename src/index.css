@@ -1,0 +1,89 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.7rem;
+  --background: #07080d;
+  --foreground: #e8edf7;
+  --card: #0d1018;
+  --card-foreground: #e8edf7;
+  --popover: #12161f;
+  --popover-foreground: #e8edf7;
+  --primary: #7dd3c7;
+  --primary-foreground: #06201c;
+  --secondary: #181d29;
+  --secondary-foreground: #d5dbe8;
+  --muted: #151924;
+  --muted-foreground: #8b95a8;
+  --accent: #1b2230;
+  --accent-foreground: #e8edf7;
+  --destructive: #f0718b;
+  --border: rgba(232, 237, 247, 0.1);
+  --input: rgba(232, 237, 247, 0.12);
+  --ring: #7dd3c7;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: #07080d;
+    color: var(--foreground);
+    color-scheme: dark;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+.panel-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(232, 237, 247, 0.12);
+  border-radius: 99px;
+}
+
+.panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
