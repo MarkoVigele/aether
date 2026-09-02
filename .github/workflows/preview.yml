@@ -34,9 +34,41 @@ jobs:
           npm run build
 
       - name: Deploy preview
-        uses: rossjrw/pr-preview-action@v1
+        if: github.event.action != 'closed'
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          source-dir: dist
-          preview-branch: gh-pages
-          umbrella-dir: pr
-          comment: true
+          folder: dist
+          branch: gh-pages
+          target-folder: pr/${{ github.event.number }}
+          force: false
+          clean: true
+
+      - name: Comment preview URL
+        if: github.event.action != 'closed'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-preview
+          message: |
+            Preview: https://markovigele.github.io/aether/pr/${{ github.event.number }}/
+
+      - name: Empty preview folder
+        if: github.event.action == 'closed'
+        run: mkdir -p empty-preview && touch empty-preview/.keep
+
+      - name: Remove preview
+        if: github.event.action == 'closed'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: empty-preview
+          branch: gh-pages
+          target-folder: pr/${{ github.event.number }}
+          force: false
+          clean: true
+
+      - name: Comment preview removed
+        if: github.event.action == 'closed'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-preview
+          message: |
+            Preview removed.
