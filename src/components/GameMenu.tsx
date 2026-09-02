@@ -59,24 +59,26 @@ export function GameMenu({
   const set = (partial: Partial<SimSettings>) => onChange({ ...settings, ...partial })
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/62 p-3 backdrop-blur-md sm:p-6">
-      <div className="flex max-h-[92svh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b0d14]/92 shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-white/8 px-5 py-4">
+    <div className="absolute inset-x-0 bottom-[var(--dock-space)] z-50 flex items-end justify-center md:inset-0 md:items-center md:bg-black/62 md:p-6 md:backdrop-blur-md">
+      <div className="flex max-h-[48svh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d14]/94 shadow-2xl md:max-h-[92svh] md:rounded-2xl">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-white/8 bg-[#0b0d14]/94 px-4 py-3 md:px-5 md:py-4">
           <div>
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/25 md:hidden" aria-hidden />
             <p className="text-[11px] tracking-[0.22em] text-primary/80 uppercase">Paused</p>
             <h2 className="text-xl font-semibold tracking-tight text-white">Aether menu</h2>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={onReset}>
+            <Button variant="secondary" size="sm" className="max-md:hidden" onClick={onReset}>
               Reset field
             </Button>
-            <Button size="sm" onClick={onResume}>
-              Resume
+            <Button size="sm" className="max-md:min-h-11 max-md:px-4" onClick={onResume}>
+              <span className="md:hidden">Fertig</span>
+              <span className="hidden md:inline">Resume</span>
             </Button>
           </div>
         </div>
 
-        <div className="panel-scroll grid min-h-0 flex-1 gap-6 overflow-y-auto px-5 py-5 md:grid-cols-2">
+        <div className="panel-scroll grid min-h-0 flex-1 gap-6 overflow-y-auto px-4 py-4 md:grid-cols-2 md:px-5 md:py-5">
           <section className="grid gap-3">
             <h3 className="text-[11px] font-semibold tracking-[0.16em] text-foreground/70 uppercase">
               Graphics
@@ -160,19 +162,21 @@ export function GameMenu({
           </section>
 
           <section className="grid gap-3 content-start">
-            <h3 className="text-[11px] font-semibold tracking-[0.16em] text-foreground/70 uppercase">
-              Controls
-            </h3>
-            <ul className="grid gap-1.5">
-              {SHORTCUTS.map(([key, label]) => (
-                <li key={key} className="flex items-center justify-between gap-3 text-xs">
-                  <span className="text-white/80">{label}</span>
-                  <kbd className="rounded-md border border-white/10 bg-white/6 px-1.5 py-0.5 font-mono text-[10px] text-white/70">
-                    {key}
-                  </kbd>
-                </li>
-              ))}
-            </ul>
+            <div className="kbd-hint hidden md:contents">
+              <h3 className="text-[11px] font-semibold tracking-[0.16em] text-foreground/70 uppercase">
+                Controls
+              </h3>
+              <ul className="grid gap-1.5">
+                {SHORTCUTS.map(([key, label]) => (
+                  <li key={key} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-white/80">{label}</span>
+                    <kbd className="rounded-md border border-white/10 bg-white/6 px-1.5 py-0.5 font-mono text-[10px] text-white/70">
+                      {key}
+                    </kbd>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
             <h3 className="mt-3 text-[11px] font-semibold tracking-[0.16em] text-foreground/70 uppercase">
               Backup file

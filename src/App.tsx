@@ -1,9 +1,10 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ControlPanel, makeRandomForces } from '@/components/ControlPanel'
 import { GameMenu } from '@/components/GameMenu'
 import { Hud } from '@/components/Hud'
 import { SimulationCanvas } from '@/components/SimulationCanvas'
 import { Button } from '@/components/ui/button'
+import { isNarrowViewport } from '@/lib/media'
 import {
   exportPersistedJson,
   loadPersisted,
@@ -15,6 +16,7 @@ import { loadSlots } from '@/lib/saveSlots'
 import { cloneSettings, PRESETS, randomForceMatrix } from '@/simulation/settings'
 import type { SimSettings, SimStats } from '@/simulation/types'
 import { PALETTES } from '@/simulation/palettes'
+import { Pause, Play, RotateCcw, SlidersHorizontal } from 'lucide-react'
 
 const emptyStats: SimStats = {
   fps: 0,
@@ -43,7 +45,9 @@ export default function App() {
   const [paused, setPaused] = useState(false)
   const [seed, setSeed] = useState(() => (Math.random() * 1_000_000) | 0)
   const [resetKey, setResetKey] = useState(0)
-  const [panelOpen, setPanelOpen] = useState(() => initial.bundle.panelOpen)
+  const [panelOpen, setPanelOpen] = useState(() =>
+    isNarrowViewport() ? false : initial.bundle.panelOpen,
+  )
   const [presetId, setPresetId] = useState(() => initial.bundle.presetId)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notice, setNotice] = useState<PersistNotice>(initial.notice)
@@ -60,12 +64,21 @@ export default function App() {
       savePersisted({
         ...bundle,
         settings,
-        panelOpen,
+        panelOpen: isNarrowViewport() ? bundle.panelOpen : panelOpen,
         presetId,
       })
     }, 250)
     return () => window.clearTimeout(timer)
   }, [panelOpen, presetId, settings])
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767.98px)')
+    const onChange = () => {
+      if (media.matches) setPanelOpen(false)
+    }
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [])
 
   const reset = useCallback(() => {
     setResetKey((n) => n + 1)
@@ -158,7 +171,7 @@ export default function App() {
   }, [applyPreset, loadSaved, menuOpen, newUniverse, reset])
 
   return (
-    <div className="relative h-svh w-full overflow-hidden" style={{ background: bg }}>
+    <div className="relative h-svh h-dvh w-full overflow-hidden" style={{ background: bg }}>
       <LiveField
         settings={settings}
         paused={paused || menuOpen}
@@ -196,39 +209,27 @@ export default function App() {
       ) : null}
 
       <aside
-        className={`absolute inset-x-0 bottom-0 z-30 flex max-h-[72svh] flex-col border-t border-white/10 bg-[#07080d]/78 backdrop-blur-xl transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l ${
+        className={`absolute inset-x-0 z-30 flex max-h-[42svh] flex-col overflow-hidden border-t border-white/10 bg-[#07080d]/82 backdrop-blur-xl transition-transform duration-300 md:inset-y-0 md:right-0 md:bottom-auto md:left-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l ${
           panelOpen ? 'translate-y-0 md:translate-x-0' : 'translate-y-full md:translate-y-0 md:translate-x-full'
         }`}
+        style={{ bottom: 'var(--dock-space)' }}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-white/8 px-4 py-3">
-          <div>
-            <p className="text-sm font-medium text-white">Field controls</p>
-            <p className="text-[11px] text-muted-foreground">Esc menu · Space pause · R reset · 1–6 presets</p>
-          </div>
-          <div className="flex gap-1.5">
-            <Button variant="ghost" size="sm" onClick={() => setMenuOpen(true)}>
-              Menu
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setPanelOpen(false)}>
-              Hide
-            </Button>
-          </div>
-        </div>
+        <SheetHeader onClose={() => setPanelOpen(false)} onOpenMenu={() => setMenuOpen(true)} />
         <div className="panel-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          <div className="mb-3 grid grid-cols-2 gap-1.5">
+          <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-visible md:pb-0">
             {PRESETS.map((preset) => (
               <button
                 key={preset.id}
                 type="button"
                 onClick={() => applyPreset(preset.id)}
-                className={`rounded-lg border px-2.5 py-2 text-left transition ${
+                className={`shrink-0 rounded-full border px-3 py-2 text-left transition md:rounded-lg md:px-2.5 ${
                   presetId === preset.id
                     ? 'border-primary/40 bg-primary/10'
                     : 'border-white/8 bg-white/3 hover:bg-white/6'
                 }`}
               >
                 <span className="block text-xs font-medium text-white">{preset.label}</span>
-                <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">
+                <span className="mt-0.5 hidden text-[10px] leading-snug text-muted-foreground md:block">
                   {preset.blurb}
                 </span>
               </button>
@@ -242,6 +243,37 @@ export default function App() {
         </div>
       </aside>
 
+      <nav
+        className="pointer-events-auto absolute inset-x-0 bottom-0 z-40 flex items-center justify-center gap-2 px-3 pt-1.5 md:hidden"
+        style={{ paddingBottom: 'max(0.45rem, env(safe-area-inset-bottom))' }}
+      >
+        <Button
+          variant="secondary"
+          className="h-11 min-w-11 px-3.5 [&_svg]:size-5"
+          onClick={() => setPaused((v) => !v)}
+          aria-label={paused ? 'Play' : 'Pause'}
+        >
+          {paused ? <Play /> : <Pause />}
+          Pause
+        </Button>
+        <Button
+          variant={panelOpen ? 'default' : 'secondary'}
+          className="h-11 min-w-11 px-3.5 [&_svg]:size-5"
+          onClick={() => setPanelOpen((v) => !v)}
+        >
+          <SlidersHorizontal />
+          Panel
+        </Button>
+        <Button
+          variant="secondary"
+          className="h-11 min-w-11 px-3.5 [&_svg]:size-5"
+          onClick={reset}
+        >
+          <RotateCcw />
+          Reset
+        </Button>
+      </nav>
+
       {menuOpen ? (
         <GameMenu
           settings={settings}
@@ -253,6 +285,56 @@ export default function App() {
           onImportBundle={importSaves}
         />
       ) : null}
+    </div>
+  )
+}
+
+function SheetHeader({
+  onClose,
+  onOpenMenu,
+}: {
+  onClose: () => void
+  onOpenMenu: () => void
+}) {
+  const startY = useRef<number | null>(null)
+
+  return (
+    <div className="sticky top-0 z-10 border-b border-white/8 bg-[#07080d]/90 px-4 pt-1.5 pb-2 backdrop-blur-xl md:static md:pt-3 md:pb-3">
+      <div
+        className="flex cursor-grab justify-center py-1.5 md:hidden"
+        onPointerDown={(event) => {
+          startY.current = event.clientY
+          event.currentTarget.setPointerCapture(event.pointerId)
+        }}
+        onPointerUp={(event) => {
+          if (startY.current != null && event.clientY - startY.current > 48) onClose()
+          startY.current = null
+        }}
+      >
+        <span className="h-1 w-10 rounded-full bg-white/30" aria-hidden />
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-white">Field controls</p>
+          <p className="kbd-hint hidden text-[11px] text-muted-foreground md:block">
+            Esc menu · Space pause · R reset · 1–6 presets
+          </p>
+        </div>
+        <div className="flex gap-1.5">
+          <Button variant="ghost" size="sm" className="max-md:hidden" onClick={onOpenMenu}>
+            Menu
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="max-md:min-h-11 max-md:px-3"
+            onClick={onClose}
+          >
+            <span className="md:hidden">Fertig</span>
+            <span className="hidden md:inline">Hide</span>
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

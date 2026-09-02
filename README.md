@@ -21,6 +21,8 @@ Oder einfach den Live-Link öffnen, ohne Installation.
 
 Ziehen mit der Maus: je nach Einstellung anziehen, abstoßen oder neue Punkte setzen. Die Seitenleiste steuert Physik, Arten und Farben.
 
+Auf dem Handy: unten Pause, Panel, Reset. Das Einstellungsblatt bleibt niedrig, das Feld bleibt sichtbar.
+
 | Taste | Wirkung |
 | --- | --- |
 | `Esc` | Menü öffnen oder schließen |

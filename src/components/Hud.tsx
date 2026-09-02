@@ -39,26 +39,51 @@ export function Hud({
           <h1 className="text-lg font-semibold tracking-tight text-white sm:text-xl">
             Living particle physics
           </h1>
-          <p className="mt-1 max-w-md text-xs leading-relaxed text-white/55">
+          <p className="mt-1 hidden max-w-md text-xs leading-relaxed text-white/55 md:block">
             Species attract, hunt, flock, and split. Drag to stir the field.
           </p>
         </div>
         <div className="pointer-events-auto flex items-center gap-1.5">
-          <Button variant="secondary" size="icon-sm" onClick={onOpenMenu} aria-label="Menu">
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            className="max-md:size-11 max-md:[&_svg]:size-5"
+            onClick={onOpenMenu}
+            aria-label="Menu"
+          >
             <Menu />
           </Button>
-          <Button variant="secondary" size="icon-sm" onClick={onTogglePause} aria-label={paused ? 'Play' : 'Pause'}>
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            className="max-md:hidden"
+            onClick={onTogglePause}
+            aria-label={paused ? 'Play' : 'Pause'}
+          >
             {paused ? <Play /> : <Pause />}
           </Button>
-          <Button variant="secondary" size="icon-sm" onClick={onReset} aria-label="Reset">
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            className="max-md:hidden"
+            onClick={onReset}
+            aria-label="Reset"
+          >
             <RotateCcw />
           </Button>
-          <Button variant="secondary" size="icon-sm" onClick={onRandomize} aria-label="New universe">
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            className="max-md:size-11 max-md:[&_svg]:size-5"
+            onClick={onRandomize}
+            aria-label="New universe"
+          >
             <Dices />
           </Button>
           <Button
             variant={panelOpen ? 'default' : 'secondary'}
             size="icon-sm"
+            className="max-md:hidden"
             onClick={onTogglePanel}
             aria-label="Settings"
           >

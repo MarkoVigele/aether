@@ -6,18 +6,29 @@ export function Section({
   title,
   children,
   defaultOpen = false,
+  open: openProp,
+  onOpenChange,
 }: {
   title: string
   children: ReactNode
   defaultOpen?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [uncontrolled, setUncontrolled] = useState(defaultOpen)
+  const open = openProp ?? uncontrolled
+
+  const setOpen = (next: boolean) => {
+    onOpenChange?.(next)
+    if (openProp === undefined) setUncontrolled(next)
+  }
+
   return (
     <section className="border-b border-white/6 py-2.5">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between py-1.5 text-left"
+        onClick={() => setOpen(!open)}
+        className="flex min-h-11 w-full items-center justify-between py-1.5 text-left md:min-h-0"
       >
         <span className="text-[11px] font-semibold tracking-[0.16em] text-foreground/70 uppercase">
           {title}

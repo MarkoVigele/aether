@@ -25,8 +25,37 @@ export function ForceMatrix({ matrix, colors, onChange }: ForceMatrixProps) {
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         Rows act on columns. Green pulls, rose pushes.
       </p>
+      <div className="grid gap-1 md:hidden">
+        {matrix.map((row, rowIndex) =>
+          row.map((cell, colIndex) => {
+            const t = (cell + 1) / 2
+            const bg = `linear-gradient(90deg, rgba(125,211,199,${t * 0.55}), rgba(240,113,139,${(1 - t) * 0.5}))`
+            const active = sel[0] === rowIndex && sel[1] === colIndex
+            return (
+              <button
+                key={`${rowIndex}-${colIndex}`}
+                type="button"
+                onClick={() => setSel([rowIndex, colIndex])}
+                className={cn(
+                  'flex min-h-11 items-center gap-2 rounded-md border px-2.5 py-2 text-left',
+                  active ? 'border-primary text-foreground' : 'border-white/5 text-foreground/80',
+                )}
+                style={{ background: bg }}
+              >
+                <span className="size-2.5 shrink-0 rounded-full" style={{ background: colors[rowIndex] }} />
+                <span className="text-[10px] text-white/50">→</span>
+                <span className="size-2.5 shrink-0 rounded-full" style={{ background: colors[colIndex] }} />
+                <span className="flex-1 text-xs">
+                  {rowIndex + 1} → {colIndex + 1}
+                </span>
+                <span className="font-mono text-[11px]">{cell.toFixed(2)}</span>
+              </button>
+            )
+          }),
+        )}
+      </div>
       <div
-        className="grid gap-1"
+        className="hidden gap-1 md:grid"
         style={{ gridTemplateColumns: `18px repeat(${n}, minmax(0, 1fr))` }}
       >
         <div />
@@ -91,8 +120,39 @@ export function EatMatrix({ matrix, colors, onChange }: EatMatrixProps) {
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         Tap a cell so the row species can feed on the column species.
       </p>
+      <div className="grid gap-1 md:hidden">
+        {matrix.map((row, rowIndex) =>
+          row.map((on, colIndex) => (
+            <button
+              key={`${rowIndex}-${colIndex}`}
+              type="button"
+              onClick={() =>
+                onChange(
+                  matrix.map((r, ri) =>
+                    r.map((c, ci) => (ri === rowIndex && ci === colIndex ? !c : c)),
+                  ),
+                )
+              }
+              className={cn(
+                'flex min-h-11 items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs font-medium',
+                on
+                  ? 'border-primary/40 bg-primary/20 text-primary'
+                  : 'border-white/5 bg-white/5 text-muted-foreground',
+              )}
+            >
+              <span className="size-2.5 shrink-0 rounded-full" style={{ background: colors[rowIndex] }} />
+              <span className="text-[10px] text-white/50">→</span>
+              <span className="size-2.5 shrink-0 rounded-full" style={{ background: colors[colIndex] }} />
+              <span className="flex-1">
+                {rowIndex + 1} → {colIndex + 1}
+              </span>
+              <span>{on ? 'eat' : '—'}</span>
+            </button>
+          )),
+        )}
+      </div>
       <div
-        className="grid gap-1"
+        className="hidden gap-1 md:grid"
         style={{ gridTemplateColumns: `18px repeat(${matrix.length}, minmax(0, 1fr))` }}
       >
         <div />
