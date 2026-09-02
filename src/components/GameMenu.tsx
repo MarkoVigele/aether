@@ -65,20 +65,16 @@ export function GameMenu({
   return (
     <div className="absolute inset-x-0 bottom-[var(--dock-space)] z-50 flex items-end justify-center md:inset-0 md:items-center md:bg-black/62 md:p-6 md:backdrop-blur-md">
       <div
+        ref={sheetDrag.sheetRef}
         className={`flex max-h-[min(45svh,45dvh)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d14]/94 shadow-2xl md:max-h-[92svh] md:rounded-2xl ${
           sheetDrag.dragging ? '' : 'transition-transform duration-300'
         }`}
-        style={{
-          transform: sheetDrag.dragging
-            ? `translateY(${Math.max(0, sheetDrag.offset)}px)`
-            : undefined,
-        }}
       >
         <div className="sticky top-0 z-10 border-b border-white/8 bg-[#0b0d14]/94 px-4 pt-0 pb-3 md:px-5 md:pt-4 md:pb-4">
           <div
             className="flex min-h-11 cursor-grab touch-none items-center justify-center active:cursor-grabbing md:hidden"
             aria-label="Ziehen zum Schließen"
-            {...sheetDrag.bind}
+            onPointerDown={sheetDrag.bind.onPointerDown}
           >
             <span className="h-1 w-10 rounded-full bg-white/35" aria-hidden />
           </div>

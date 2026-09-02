@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type Ref,
+} from 'react'
 import { ControlPanel, makeRandomForces } from '@/components/ControlPanel'
 import { GameMenu } from '@/components/GameMenu'
 import { Hud } from '@/components/Hud'
@@ -65,6 +73,16 @@ export default function App() {
   const fieldDismiss = useFieldTapDismiss(dismissField)
   const closePanel = useCallback(() => setPanelOpen(false), [])
   const sheetDrag = useSheetDrag(closePanel, narrow && panelOpen)
+
+  useEffect(() => {
+    if (!narrow || sheetDrag.dragging) return
+    const node = sheetDrag.sheetRef.current
+    if (!node) return
+    node.style.transition = 'transform 300ms'
+    node.style.transform = panelOpen
+      ? 'translateY(0px)'
+      : 'translateY(calc(100% + var(--dock-space) + 0.75rem))'
+  }, [narrow, panelOpen, sheetDrag.dragging, sheetDrag.sheetRef])
 
   const bg = useMemo(() => PALETTES[settings.palette].background, [settings.palette])
 
@@ -232,6 +250,7 @@ export default function App() {
       ) : null}
 
       <aside
+        ref={sheetDrag.sheetRef as Ref<HTMLElement>}
         className={`absolute inset-x-0 z-30 flex max-h-[min(42svh,42dvh)] flex-col overflow-hidden border-t border-white/10 bg-[#07080d]/82 backdrop-blur-xl md:inset-y-0 md:right-0 md:bottom-auto md:left-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l md:transition-transform md:duration-300 ${
           sheetDrag.dragging ? '' : 'max-md:transition-transform max-md:duration-300'
         } ${
@@ -239,25 +258,12 @@ export default function App() {
             ? 'md:translate-x-0'
             : 'max-md:pointer-events-none md:pointer-events-auto md:translate-x-full'
         }`}
-        style={{
-          bottom: 'var(--dock-space)',
-          transform: narrow
-            ? `translateY(${
-                sheetDrag.dragging
-                  ? sheetDrag.offset < 0
-                    ? `${sheetDrag.offset * 0.35}px`
-                    : `${sheetDrag.offset}px`
-                  : panelOpen
-                    ? '0px'
-                    : 'calc(100% + var(--dock-space) + 0.75rem)'
-              })`
-            : undefined,
-        }}
+        style={{ bottom: 'var(--dock-space)' }}
       >
         <SheetHeader
           onClose={() => setPanelOpen(false)}
           onOpenMenu={() => setMenuOpen(true)}
-          dragBind={sheetDrag.bind}
+          onGrabberDown={sheetDrag.bind.onPointerDown}
         />
         <div className="panel-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-visible md:pb-0">
@@ -283,7 +289,8 @@ export default function App() {
             settings={settings}
             onChange={setSettings}
             onRandomForces={shuffleForces}
-            onOpenSection={setSheetSection}
+            exclusiveOpen={narrow ? sheetSection : undefined}
+            onExclusiveOpen={setSheetSection}
           />
         </div>
       </aside>
@@ -338,23 +345,18 @@ export default function App() {
 function SheetHeader({
   onClose,
   onOpenMenu,
-  dragBind,
+  onGrabberDown,
 }: {
   onClose: () => void
   onOpenMenu: () => void
-  dragBind: {
-    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
-    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void
-    onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void
-    onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => void
-  }
+  onGrabberDown: (event: ReactPointerEvent<HTMLElement>) => void
 }) {
   return (
     <div className="sticky top-0 z-10 border-b border-white/8 bg-[#07080d]/90 px-4 pt-0 pb-2 backdrop-blur-xl md:static md:pt-3 md:pb-3">
       <div
         className="flex min-h-11 cursor-grab touch-none items-center justify-center active:cursor-grabbing md:hidden"
         aria-label="Ziehen zum Schließen"
-        {...dragBind}
+        onPointerDown={onGrabberDown}
       >
         <span className="h-1 w-10 rounded-full bg-white/35" aria-hidden />
       </div>
