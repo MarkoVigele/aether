@@ -12,6 +12,7 @@ import { clearSlot, loadSlots, writeSlot, type SaveSlot } from '@/lib/saveSlots'
 import { paletteList } from '@/simulation/palettes'
 import type { PaletteId, SimSettings } from '@/simulation/types'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useSheetDrag } from '@/lib/sheetDrag'
 import { SliderRow } from './SliderRow'
 import { ToggleRow } from './ToggleRow'
 
@@ -34,6 +35,7 @@ type GameMenuProps = {
   onLoadSettings: (settings: SimSettings) => void
   onExport: () => void
   onImportBundle: (bundle: PersistedBundle) => void
+  dragEnabled?: boolean
 }
 
 export function GameMenu({
@@ -44,6 +46,7 @@ export function GameMenu({
   onLoadSettings,
   onExport,
   onImportBundle,
+  dragEnabled = false,
 }: GameMenuProps) {
   const [slots, setSlots] = useState<(SaveSlot | null)[]>(() => loadSlots())
   const [slotName, setSlotName] = useState('My setup')
@@ -57,13 +60,30 @@ export function GameMenu({
   }), [])
 
   const set = (partial: Partial<SimSettings>) => onChange({ ...settings, ...partial })
+  const sheetDrag = useSheetDrag(onResume, dragEnabled)
 
   return (
     <div className="absolute inset-x-0 bottom-[var(--dock-space)] z-50 flex items-end justify-center md:inset-0 md:items-center md:bg-black/62 md:p-6 md:backdrop-blur-md">
-      <div className="flex max-h-[min(45svh,45dvh)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d14]/94 shadow-2xl md:max-h-[92svh] md:rounded-2xl">
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-white/8 bg-[#0b0d14]/94 px-4 py-3 md:px-5 md:py-4">
+      <div
+        className={`flex max-h-[min(45svh,45dvh)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d14]/94 shadow-2xl md:max-h-[92svh] md:rounded-2xl ${
+          sheetDrag.dragging ? '' : 'transition-transform duration-300'
+        }`}
+        style={{
+          transform: sheetDrag.dragging
+            ? `translateY(${Math.max(0, sheetDrag.offset)}px)`
+            : undefined,
+        }}
+      >
+        <div className="sticky top-0 z-10 border-b border-white/8 bg-[#0b0d14]/94 px-4 pt-0 pb-3 md:px-5 md:pt-4 md:pb-4">
+          <div
+            className="flex min-h-11 cursor-grab touch-none items-center justify-center active:cursor-grabbing md:hidden"
+            aria-label="Ziehen zum Schließen"
+            {...sheetDrag.bind}
+          >
+            <span className="h-1 w-10 rounded-full bg-white/35" aria-hidden />
+          </div>
+          <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/25 md:hidden" aria-hidden />
             <p className="text-[11px] tracking-[0.22em] text-primary/80 uppercase">Paused</p>
             <h2 className="text-xl font-semibold tracking-tight text-white">Aether menu</h2>
           </div>
@@ -75,6 +95,7 @@ export function GameMenu({
               <span className="md:hidden">Fertig</span>
               <span className="hidden md:inline">Resume</span>
             </Button>
+          </div>
           </div>
         </div>
 

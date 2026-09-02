@@ -1,10 +1,11 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { ControlPanel, makeRandomForces } from '@/components/ControlPanel'
 import { GameMenu } from '@/components/GameMenu'
 import { Hud } from '@/components/Hud'
 import { SimulationCanvas } from '@/components/SimulationCanvas'
 import { Button } from '@/components/ui/button'
-import { isNarrowViewport } from '@/lib/media'
+import { isNarrowViewport, useIsNarrow } from '@/lib/media'
+import { useFieldTapDismiss, useSheetDrag } from '@/lib/sheetDrag'
 import {
   exportPersistedJson,
   loadPersisted,
@@ -50,7 +51,20 @@ export default function App() {
   )
   const [presetId, setPresetId] = useState(() => initial.bundle.presetId)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [sheetSection, setSheetSection] = useState<string | null>('world')
   const [notice, setNotice] = useState<PersistNotice>(initial.notice)
+  const narrow = useIsNarrow()
+  const pointerToolOpen = panelOpen && sheetSection === 'pointer'
+  const dismissField = useCallback(() => {
+    if (menuOpen) {
+      setMenuOpen(false)
+      return
+    }
+    if (panelOpen && !pointerToolOpen) setPanelOpen(false)
+  }, [menuOpen, panelOpen, pointerToolOpen])
+  const fieldDismiss = useFieldTapDismiss(dismissField)
+  const closePanel = useCallback(() => setPanelOpen(false), [])
+  const sheetDrag = useSheetDrag(closePanel, narrow && panelOpen)
 
   const bg = useMemo(() => PALETTES[settings.palette].background, [settings.palette])
 
@@ -187,6 +201,15 @@ export default function App() {
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(0,0,0,0.55)_100%)]" />
 
+      {narrow && (panelOpen || menuOpen) && !pointerToolOpen ? (
+        <div
+          className="absolute inset-0 z-[15] md:hidden"
+          style={{ bottom: 'var(--dock-space)' }}
+          {...fieldDismiss}
+          role="presentation"
+        />
+      ) : null}
+
       {notice ? (
         <div className="absolute inset-x-0 top-0 z-40 flex justify-center p-3 pt-20">
           <div
@@ -209,14 +232,33 @@ export default function App() {
       ) : null}
 
       <aside
-        className={`absolute inset-x-0 z-30 flex max-h-[min(42svh,42dvh)] flex-col overflow-hidden border-t border-white/10 bg-[#07080d]/82 backdrop-blur-xl transition-transform duration-300 md:inset-y-0 md:right-0 md:bottom-auto md:left-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l ${
+        className={`absolute inset-x-0 z-30 flex max-h-[min(42svh,42dvh)] flex-col overflow-hidden border-t border-white/10 bg-[#07080d]/82 backdrop-blur-xl md:inset-y-0 md:right-0 md:bottom-auto md:left-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l md:transition-transform md:duration-300 ${
+          sheetDrag.dragging ? '' : 'max-md:transition-transform max-md:duration-300'
+        } ${
           panelOpen
-            ? 'translate-y-0 md:translate-x-0'
-            : 'pointer-events-none translate-y-[calc(100%+var(--dock-space)+0.75rem)] md:pointer-events-auto md:translate-y-0 md:translate-x-full'
+            ? 'md:translate-x-0'
+            : 'max-md:pointer-events-none md:pointer-events-auto md:translate-x-full'
         }`}
-        style={{ bottom: 'var(--dock-space)' }}
+        style={{
+          bottom: 'var(--dock-space)',
+          transform: narrow
+            ? `translateY(${
+                sheetDrag.dragging
+                  ? sheetDrag.offset < 0
+                    ? `${sheetDrag.offset * 0.35}px`
+                    : `${sheetDrag.offset}px`
+                  : panelOpen
+                    ? '0px'
+                    : 'calc(100% + var(--dock-space) + 0.75rem)'
+              })`
+            : undefined,
+        }}
       >
-        <SheetHeader onClose={() => setPanelOpen(false)} onOpenMenu={() => setMenuOpen(true)} />
+        <SheetHeader
+          onClose={() => setPanelOpen(false)}
+          onOpenMenu={() => setMenuOpen(true)}
+          dragBind={sheetDrag.bind}
+        />
         <div className="panel-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-visible md:pb-0">
             {PRESETS.map((preset) => (
@@ -241,6 +283,7 @@ export default function App() {
             settings={settings}
             onChange={setSettings}
             onRandomForces={shuffleForces}
+            onOpenSection={setSheetSection}
           />
         </div>
       </aside>
@@ -285,6 +328,7 @@ export default function App() {
           onLoadSettings={loadSaved}
           onExport={exportSaves}
           onImportBundle={importSaves}
+          dragEnabled={narrow}
         />
       ) : null}
     </div>
@@ -294,26 +338,25 @@ export default function App() {
 function SheetHeader({
   onClose,
   onOpenMenu,
+  dragBind,
 }: {
   onClose: () => void
   onOpenMenu: () => void
+  dragBind: {
+    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
+    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void
+    onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void
+    onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => void
+  }
 }) {
-  const startY = useRef<number | null>(null)
-
   return (
-    <div className="sticky top-0 z-10 border-b border-white/8 bg-[#07080d]/90 px-4 pt-1.5 pb-2 backdrop-blur-xl md:static md:pt-3 md:pb-3">
+    <div className="sticky top-0 z-10 border-b border-white/8 bg-[#07080d]/90 px-4 pt-0 pb-2 backdrop-blur-xl md:static md:pt-3 md:pb-3">
       <div
-        className="flex cursor-grab justify-center py-1.5 md:hidden"
-        onPointerDown={(event) => {
-          startY.current = event.clientY
-          event.currentTarget.setPointerCapture(event.pointerId)
-        }}
-        onPointerUp={(event) => {
-          if (startY.current != null && event.clientY - startY.current > 48) onClose()
-          startY.current = null
-        }}
+        className="flex min-h-11 cursor-grab touch-none items-center justify-center active:cursor-grabbing md:hidden"
+        aria-label="Ziehen zum Schließen"
+        {...dragBind}
       >
-        <span className="h-1 w-10 rounded-full bg-white/30" aria-hidden />
+        <span className="h-1 w-10 rounded-full bg-white/35" aria-hidden />
       </div>
       <div className="flex items-center justify-between gap-3">
         <div>
