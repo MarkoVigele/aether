@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { ingestSimTime, shouldDrawFrame, SIM_DT, takeSimSteps } from '@/simulation/clock'
 import { Engine } from '@/simulation/engine'
 import { displayDpr, Renderer } from '@/simulation/renderer'
 import type { SimSettings, SimStats } from '@/simulation/types'
@@ -9,6 +10,8 @@ type SimulationCanvasProps = {
   resetKey: number
   seed: number
   onStats: (stats: SimStats) => void
+  dismissOnTap?: boolean
+  onFieldTap?: () => void
 }
 
 export function SimulationCanvas({
@@ -17,6 +20,8 @@ export function SimulationCanvas({
   resetKey,
   seed,
   onStats,
+  dismissOnTap = false,
+  onFieldTap,
 }: SimulationCanvasProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -25,10 +30,14 @@ export function SimulationCanvas({
   const settingsRef = useRef(settings)
   const pausedRef = useRef(paused)
   const onStatsRef = useRef(onStats)
+  const dismissOnTapRef = useRef(dismissOnTap)
+  const onFieldTapRef = useRef(onFieldTap)
 
   settingsRef.current = settings
   pausedRef.current = paused
   onStatsRef.current = onStats
+  dismissOnTapRef.current = dismissOnTap
+  onFieldTapRef.current = onFieldTap
 
   const resizeRef = useRef<(() => void) | null>(null)
 
@@ -78,29 +87,47 @@ export function SimulationCanvas({
     const ctx = canvas.getContext('2d', { alpha: false })
     if (!ctx) return
 
-    let frame = 0
     let last = performance.now()
-    let frames = 0
+    let acc = 0
+    let lastDraw = Number.NEGATIVE_INFINITY
+    let draws = 0
     let fpsStamp = last
     let raf = 0
+    let statsTick = 0
 
     const loop = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000)
+      const elapsed = (now - last) / 1000
       last = now
-      frames++
+      const settings = settingsRef.current
+
+      if (!pausedRef.current) {
+        acc = ingestSimTime(acc, elapsed, settings.timeScale)
+        const taken = takeSimSteps(acc)
+        acc = taken.acc
+        for (let i = 0; i < taken.steps; i++) engine.step(SIM_DT)
+      }
+
+      const draw = shouldDrawFrame(now, lastDraw, settings.displayFps)
+      if (draw) {
+        lastDraw = now
+        draws++
+        try {
+          renderer.draw(ctx, engine, settings, viewW, viewH, viewDpr)
+        } catch {
+          // Keep the loop alive if a single frame fails.
+        }
+      }
+
+      statsTick++
       if (now - fpsStamp > 400) {
-        engine.stats.fps = (frames * 1000) / (now - fpsStamp)
-        frames = 0
+        engine.stats.fps = (draws * 1000) / (now - fpsStamp)
+        draws = 0
         fpsStamp = now
+        onStatsRef.current({ ...engine.stats })
+      } else if (statsTick % 20 === 0) {
+        onStatsRef.current({ ...engine.stats })
       }
-      try {
-        if (!pausedRef.current) engine.step(dt)
-        renderer.draw(ctx, engine, settingsRef.current, viewW, viewH, viewDpr)
-        if (frame % 20 === 0) onStatsRef.current({ ...engine.stats })
-      } catch {
-        // Keep the loop alive if a single frame fails.
-      }
-      frame++
+
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
@@ -124,6 +151,10 @@ export function SimulationCanvas({
     }
 
     const onDown = (event: PointerEvent) => {
+      if (dismissOnTapRef.current) {
+        onFieldTapRef.current?.()
+        return
+      }
       canvas.setPointerCapture(event.pointerId)
       engine.mouse.down = true
       onPointer(event)

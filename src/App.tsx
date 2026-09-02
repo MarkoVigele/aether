@@ -1,9 +1,19 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type Ref,
+} from 'react'
 import { ControlPanel, makeRandomForces } from '@/components/ControlPanel'
 import { GameMenu } from '@/components/GameMenu'
 import { Hud } from '@/components/Hud'
 import { SimulationCanvas } from '@/components/SimulationCanvas'
 import { Button } from '@/components/ui/button'
+import { isNarrowViewport, useIsNarrow } from '@/lib/media'
+import { stageTranslate, useSnapSheet, type SheetStage } from '@/lib/sheetDrag'
 import {
   exportPersistedJson,
   loadPersisted,
@@ -15,6 +25,7 @@ import { loadSlots } from '@/lib/saveSlots'
 import { cloneSettings, PRESETS, randomForceMatrix } from '@/simulation/settings'
 import type { SimSettings, SimStats } from '@/simulation/types'
 import { PALETTES } from '@/simulation/palettes'
+import { Pause, Play, RotateCcw, SlidersHorizontal } from 'lucide-react'
 
 const emptyStats: SimStats = {
   fps: 0,
@@ -43,10 +54,55 @@ export default function App() {
   const [paused, setPaused] = useState(false)
   const [seed, setSeed] = useState(() => (Math.random() * 1_000_000) | 0)
   const [resetKey, setResetKey] = useState(0)
-  const [panelOpen, setPanelOpen] = useState(() => initial.bundle.panelOpen)
+  const [panelOpen, setPanelOpen] = useState(() =>
+    isNarrowViewport() ? false : initial.bundle.panelOpen,
+  )
+  const [sheetStage, setSheetStage] = useState<SheetStage>(() =>
+    isNarrowViewport() ? 'closed' : 'closed',
+  )
   const [presetId, setPresetId] = useState(() => initial.bundle.presetId)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [sheetSection, setSheetSection] = useState<string | null>('world')
   const [notice, setNotice] = useState<PersistNotice>(initial.notice)
+  const narrow = useIsNarrow()
+  const mobileOpen = narrow ? sheetStage !== 'closed' : panelOpen
+  const pointerToolOpen = mobileOpen && sheetSection === 'pointer'
+  const closePanel = useCallback(() => {
+    setPanelOpen(false)
+    setSheetStage('closed')
+  }, [])
+  const openPanelMid = useCallback(() => {
+    setPanelOpen(true)
+    setSheetStage('mid')
+  }, [])
+  const togglePanel = useCallback(() => {
+    if (narrow) {
+      if (sheetStage === 'closed') openPanelMid()
+      else closePanel()
+      return
+    }
+    setPanelOpen((v) => !v)
+  }, [closePanel, narrow, openPanelMid, sheetStage])
+  const dismissField = useCallback(() => {
+    if (menuOpen) {
+      setMenuOpen(false)
+      return
+    }
+    if (mobileOpen && !pointerToolOpen) closePanel()
+  }, [closePanel, menuOpen, mobileOpen, pointerToolOpen])
+  const onSheetStage = useCallback((next: SheetStage) => {
+    setSheetStage(next)
+    setPanelOpen(next !== 'closed')
+  }, [])
+  const sheetDrag = useSnapSheet(narrow && sheetStage !== 'closed', sheetStage, onSheetStage)
+
+  useEffect(() => {
+    if (!narrow || sheetDrag.dragging) return
+    const node = sheetDrag.sheetRef.current
+    if (!node) return
+    node.style.transition = 'transform 300ms'
+    node.style.transform = stageTranslate(sheetStage)
+  }, [narrow, sheetDrag.dragging, sheetDrag.sheetRef, sheetStage])
 
   const bg = useMemo(() => PALETTES[settings.palette].background, [settings.palette])
 
@@ -60,12 +116,21 @@ export default function App() {
       savePersisted({
         ...bundle,
         settings,
-        panelOpen,
+        panelOpen: isNarrowViewport() ? bundle.panelOpen : panelOpen,
         presetId,
       })
     }, 250)
     return () => window.clearTimeout(timer)
   }, [panelOpen, presetId, settings])
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767.98px)')
+    const onChange = () => {
+      if (media.matches) closePanel()
+    }
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [])
 
   const reset = useCallback(() => {
     setResetKey((n) => n + 1)
@@ -88,7 +153,11 @@ export default function App() {
     const preset = PRESETS.find((p) => p.id === id)
     if (!preset) return
     setPresetId(id)
-    setSettings(cloneSettings(preset.apply()))
+    setSettings((current) => {
+      const next = cloneSettings(preset.apply())
+      next.displayFps = current.displayFps
+      return next
+    })
     setSeed((Math.random() * 1_000_000) | 0)
     setResetKey((n) => n + 1)
   }, [])
@@ -107,6 +176,7 @@ export default function App() {
     savePersisted(bundle)
     setSettings(bundle.settings)
     setPanelOpen(bundle.panelOpen)
+    setSheetStage(bundle.panelOpen && isNarrowViewport() ? 'mid' : 'closed')
     setPresetId(bundle.presetId)
     setSeed((Math.random() * 1_000_000) | 0)
     setResetKey((n) => n + 1)
@@ -141,7 +211,7 @@ export default function App() {
       } else if (event.key === 'n' || event.key === 'N') {
         newUniverse()
       } else if (event.key === 'c' || event.key === 'C') {
-        setPanelOpen((v) => !v)
+        togglePanel()
       } else if (event.key >= '1' && event.key <= '6') {
         const index = Number(event.key) - 1
         if (event.shiftKey) {
@@ -155,20 +225,22 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [applyPreset, loadSaved, menuOpen, newUniverse, reset])
+  }, [applyPreset, loadSaved, menuOpen, newUniverse, reset, togglePanel])
 
   return (
-    <div className="relative h-svh w-full overflow-hidden" style={{ background: bg }}>
+    <div className="relative h-svh h-dvh w-full overflow-hidden" style={{ background: bg }}>
       <LiveField
         settings={settings}
         paused={paused || menuOpen}
         resetKey={resetKey}
         seed={seed}
-        panelOpen={panelOpen}
+        panelOpen={mobileOpen}
+        dismissOnTap={narrow && (menuOpen || (mobileOpen && !pointerToolOpen))}
+        onFieldTap={dismissField}
         onTogglePause={() => setPaused((v) => !v)}
         onReset={reset}
         onRandomize={newUniverse}
-        onTogglePanel={() => setPanelOpen((v) => !v)}
+        onTogglePanel={togglePanel}
         onOpenMenu={() => setMenuOpen(true)}
       />
 
@@ -196,39 +268,37 @@ export default function App() {
       ) : null}
 
       <aside
-        className={`absolute inset-x-0 bottom-0 z-30 flex max-h-[72svh] flex-col border-t border-white/10 bg-[#07080d]/78 backdrop-blur-xl transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l ${
-          panelOpen ? 'translate-y-0 md:translate-x-0' : 'translate-y-full md:translate-y-0 md:translate-x-full'
+        ref={sheetDrag.sheetRef as Ref<HTMLElement>}
+        className={`absolute inset-x-0 z-30 flex max-md:h-[var(--sheet-high)] max-md:max-h-[var(--sheet-high)] flex-col overflow-hidden border-t border-white/10 bg-[#07080d]/82 backdrop-blur-xl md:inset-y-0 md:right-0 md:bottom-auto md:left-auto md:h-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l md:transition-transform md:duration-300 ${
+          sheetDrag.dragging ? '' : 'max-md:transition-transform max-md:duration-300'
+        } ${
+          mobileOpen
+            ? 'md:translate-x-0'
+            : 'max-md:pointer-events-none md:pointer-events-auto md:translate-x-full'
         }`}
+        data-sheet={narrow ? sheetStage : undefined}
+        style={{ bottom: 'var(--dock-space)' }}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-white/8 px-4 py-3">
-          <div>
-            <p className="text-sm font-medium text-white">Field controls</p>
-            <p className="text-[11px] text-muted-foreground">Esc menu · Space pause · R reset · 1–6 presets</p>
-          </div>
-          <div className="flex gap-1.5">
-            <Button variant="ghost" size="sm" onClick={() => setMenuOpen(true)}>
-              Menu
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setPanelOpen(false)}>
-              Hide
-            </Button>
-          </div>
-        </div>
+        <SheetHeader
+          onClose={closePanel}
+          onOpenMenu={() => setMenuOpen(true)}
+          onGrabberDown={sheetDrag.bind.onPointerDown}
+        />
         <div className="panel-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          <div className="mb-3 grid grid-cols-2 gap-1.5">
+          <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-visible md:pb-0">
             {PRESETS.map((preset) => (
               <button
                 key={preset.id}
                 type="button"
                 onClick={() => applyPreset(preset.id)}
-                className={`rounded-lg border px-2.5 py-2 text-left transition ${
+                className={`shrink-0 rounded-full border px-3 py-2 text-left transition md:rounded-lg md:px-2.5 ${
                   presetId === preset.id
                     ? 'border-primary/40 bg-primary/10'
                     : 'border-white/8 bg-white/3 hover:bg-white/6'
                 }`}
               >
                 <span className="block text-xs font-medium text-white">{preset.label}</span>
-                <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">
+                <span className="mt-0.5 hidden text-[10px] leading-snug text-muted-foreground md:block">
                   {preset.blurb}
                 </span>
               </button>
@@ -238,9 +308,43 @@ export default function App() {
             settings={settings}
             onChange={setSettings}
             onRandomForces={shuffleForces}
+            exclusive={narrow}
+            exclusiveOpen={sheetSection}
+            onExclusiveOpen={setSheetSection}
           />
         </div>
       </aside>
+
+      <nav
+        className="pointer-events-auto absolute inset-x-0 bottom-0 z-40 flex items-center justify-center gap-2 px-3 pt-1.5 md:hidden"
+        style={{ paddingBottom: 'max(0.45rem, env(safe-area-inset-bottom))' }}
+      >
+        <Button
+          variant="secondary"
+          className="h-11 min-w-11 px-3.5 [&_svg]:size-5"
+          onClick={() => setPaused((v) => !v)}
+          aria-label={paused ? 'Play' : 'Pause'}
+        >
+          {paused ? <Play /> : <Pause />}
+          Pause
+        </Button>
+        <Button
+          variant={mobileOpen ? 'default' : 'secondary'}
+          className="h-11 min-w-11 px-3.5 [&_svg]:size-5"
+          onClick={togglePanel}
+        >
+          <SlidersHorizontal />
+          Panel
+        </Button>
+        <Button
+          variant="secondary"
+          className="h-11 min-w-11 px-3.5 [&_svg]:size-5"
+          onClick={reset}
+        >
+          <RotateCcw />
+          Reset
+        </Button>
+      </nav>
 
       {menuOpen ? (
         <GameMenu
@@ -251,8 +355,53 @@ export default function App() {
           onLoadSettings={loadSaved}
           onExport={exportSaves}
           onImportBundle={importSaves}
+          dragEnabled={narrow}
         />
       ) : null}
+    </div>
+  )
+}
+
+function SheetHeader({
+  onClose,
+  onOpenMenu,
+  onGrabberDown,
+}: {
+  onClose: () => void
+  onOpenMenu: () => void
+  onGrabberDown: (event: ReactPointerEvent<HTMLElement>) => void
+}) {
+  return (
+    <div className="sticky top-0 z-10 border-b border-white/8 bg-[#07080d]/90 px-4 pt-0 pb-2 backdrop-blur-xl md:static md:pt-3 md:pb-3">
+      <div
+        className="flex min-h-11 cursor-grab touch-none items-center justify-center active:cursor-grabbing md:hidden"
+        aria-label="Blatt ziehen"
+        onPointerDown={onGrabberDown}
+      >
+        <span className="h-1 w-10 rounded-full bg-white/35" aria-hidden />
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-white">Field controls</p>
+          <p className="kbd-hint hidden text-[11px] text-muted-foreground md:block">
+            Esc menu · Space pause · R reset · 1–6 presets
+          </p>
+        </div>
+        <div className="flex gap-1.5">
+          <Button variant="ghost" size="sm" className="max-md:hidden" onClick={onOpenMenu}>
+            Menu
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="max-md:min-h-11 max-md:px-3"
+            onClick={onClose}
+          >
+            <span className="md:hidden">Fertig</span>
+            <span className="hidden md:inline">Hide</span>
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -263,6 +412,8 @@ function LiveField({
   resetKey,
   seed,
   panelOpen,
+  dismissOnTap,
+  onFieldTap,
   onTogglePause,
   onReset,
   onRandomize,
@@ -274,6 +425,8 @@ function LiveField({
   resetKey: number
   seed: number
   panelOpen: boolean
+  dismissOnTap?: boolean
+  onFieldTap?: () => void
   onTogglePause: () => void
   onReset: () => void
   onRandomize: () => void
@@ -289,6 +442,8 @@ function LiveField({
         resetKey={resetKey}
         seed={seed}
         onStats={setStats}
+        dismissOnTap={dismissOnTap}
+        onFieldTap={onFieldTap}
       />
       <Hud
         stats={stats}

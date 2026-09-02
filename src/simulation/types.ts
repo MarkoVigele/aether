@@ -3,11 +3,13 @@ export type GravityMode = 'none' | 'down' | 'center'
 export type MouseMode = 'attract' | 'repel' | 'spawn' | 'off'
 export type PaletteId = 'aurora' | 'ember' | 'ocean' | 'candy' | 'mono'
 export type QualityLevel = 'performance' | 'balanced' | 'beautiful'
+export type DisplayFps = 30 | 60 | 120 | 'auto'
 
 export type SimSettings = {
   particleCount: number
   speciesCount: number
   timeScale: number
+  displayFps: DisplayFps
 
   friction: number
   maxSpeed: number

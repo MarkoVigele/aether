@@ -11,7 +11,9 @@ import { bundleFromUnknown, type PersistedBundle } from '@/lib/persist'
 import { clearSlot, loadSlots, writeSlot, type SaveSlot } from '@/lib/saveSlots'
 import { paletteList } from '@/simulation/palettes'
 import type { PaletteId, SimSettings } from '@/simulation/types'
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { stageTranslate, useSnapSheet, type SheetStage } from '@/lib/sheetDrag'
+import { DisplayFpsField } from './DisplayFpsField'
 import { SliderRow } from './SliderRow'
 import { ToggleRow } from './ToggleRow'
 
@@ -34,6 +36,7 @@ type GameMenuProps = {
   onLoadSettings: (settings: SimSettings) => void
   onExport: () => void
   onImportBundle: (bundle: PersistedBundle) => void
+  dragEnabled?: boolean
 }
 
 export function GameMenu({
@@ -44,6 +47,7 @@ export function GameMenu({
   onLoadSettings,
   onExport,
   onImportBundle,
+  dragEnabled = false,
 }: GameMenuProps) {
   const [slots, setSlots] = useState<(SaveSlot | null)[]>(() => loadSlots())
   const [slotName, setSlotName] = useState('My setup')
@@ -57,26 +61,60 @@ export function GameMenu({
   }), [])
 
   const set = (partial: Partial<SimSettings>) => onChange({ ...settings, ...partial })
+  const [stage, setStage] = useState<SheetStage>('mid')
+  const onStage = (next: SheetStage) => {
+    if (next === 'closed') {
+      window.setTimeout(onResume, 280)
+      return
+    }
+    setStage(next)
+  }
+  const sheetDrag = useSnapSheet(dragEnabled, stage, onStage)
+
+  useEffect(() => {
+    if (!dragEnabled || sheetDrag.dragging) return
+    const node = sheetDrag.sheetRef.current
+    if (!node) return
+    node.style.transition = 'transform 300ms'
+    node.style.transform = stageTranslate(stage)
+  }, [dragEnabled, sheetDrag.dragging, sheetDrag.sheetRef, stage])
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/62 p-3 backdrop-blur-md sm:p-6">
-      <div className="flex max-h-[92svh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b0d14]/92 shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-white/8 px-5 py-4">
+    <div className="absolute inset-x-0 bottom-[var(--dock-space)] z-50 max-md:contents md:inset-0 md:flex md:items-center md:justify-center md:bg-black/62 md:p-6 md:backdrop-blur-md">
+      <div
+        ref={sheetDrag.sheetRef}
+        data-sheet={dragEnabled ? stage : undefined}
+        className={`flex w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d14]/94 shadow-2xl max-md:absolute max-md:inset-x-0 max-md:z-50 max-md:h-[var(--sheet-high)] max-md:max-h-[var(--sheet-high)] md:max-h-[92svh] md:rounded-2xl ${
+          sheetDrag.dragging ? '' : 'max-md:transition-transform max-md:duration-300'
+        }`}
+        style={dragEnabled ? { bottom: 'var(--dock-space)' } : undefined}
+      >
+        <div className="sticky top-0 z-10 border-b border-white/8 bg-[#0b0d14]/94 px-4 pt-0 pb-3 md:px-5 md:pt-4 md:pb-4">
+          <div
+            className="flex min-h-11 cursor-grab touch-none items-center justify-center active:cursor-grabbing md:hidden"
+            aria-label="Blatt ziehen"
+            onPointerDown={sheetDrag.bind.onPointerDown}
+          >
+            <span className="h-1 w-10 rounded-full bg-white/35" aria-hidden />
+          </div>
+          <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] tracking-[0.22em] text-primary/80 uppercase">Paused</p>
             <h2 className="text-xl font-semibold tracking-tight text-white">Aether menu</h2>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={onReset}>
+            <Button variant="secondary" size="sm" className="max-md:hidden" onClick={onReset}>
               Reset field
             </Button>
-            <Button size="sm" onClick={onResume}>
-              Resume
+            <Button size="sm" className="max-md:min-h-11 max-md:px-4" onClick={onResume}>
+              <span className="md:hidden">Fertig</span>
+              <span className="hidden md:inline">Resume</span>
             </Button>
+          </div>
           </div>
         </div>
 
-        <div className="panel-scroll grid min-h-0 flex-1 gap-6 overflow-y-auto px-5 py-5 md:grid-cols-2">
+        <div className="panel-scroll grid min-h-0 flex-1 gap-6 overflow-y-auto px-4 py-4 md:grid-cols-2 md:px-5 md:py-5">
           <section className="grid gap-3">
             <h3 className="text-[11px] font-semibold tracking-[0.16em] text-foreground/70 uppercase">
               Graphics
@@ -106,6 +144,10 @@ export function GameMenu({
               new options with defaults. You will see a warning only if a future change must
               reset incompatible data.
             </p>
+            <DisplayFpsField
+              value={settings.displayFps}
+              onChange={(displayFps) => set({ displayFps })}
+            />
             <Field label="Palette">
               <Select
                 value={settings.palette}
@@ -160,19 +202,21 @@ export function GameMenu({
           </section>
 
           <section className="grid gap-3 content-start">
-            <h3 className="text-[11px] font-semibold tracking-[0.16em] text-foreground/70 uppercase">
-              Controls
-            </h3>
-            <ul className="grid gap-1.5">
-              {SHORTCUTS.map(([key, label]) => (
-                <li key={key} className="flex items-center justify-between gap-3 text-xs">
-                  <span className="text-white/80">{label}</span>
-                  <kbd className="rounded-md border border-white/10 bg-white/6 px-1.5 py-0.5 font-mono text-[10px] text-white/70">
-                    {key}
-                  </kbd>
-                </li>
-              ))}
-            </ul>
+            <div className="kbd-hint hidden md:contents">
+              <h3 className="text-[11px] font-semibold tracking-[0.16em] text-foreground/70 uppercase">
+                Controls
+              </h3>
+              <ul className="grid gap-1.5">
+                {SHORTCUTS.map(([key, label]) => (
+                  <li key={key} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-white/80">{label}</span>
+                    <kbd className="rounded-md border border-white/10 bg-white/6 px-1.5 py-0.5 font-mono text-[10px] text-white/70">
+                      {key}
+                    </kbd>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
             <h3 className="mt-3 text-[11px] font-semibold tracking-[0.16em] text-foreground/70 uppercase">
               Backup file

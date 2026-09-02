@@ -122,10 +122,9 @@ export class Engine {
   }
 
   step(dt: number) {
-    const scaled = clamp(dt * this.settings.timeScale, 0, 1 / 30)
     this.birthsThisStep = 0
     this.deathsThisStep = 0
-    this.substep(scaled)
+    this.substep(dt)
     this.refreshStats()
   }
 

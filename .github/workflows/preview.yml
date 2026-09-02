@@ -1,0 +1,74 @@
+name: Deploy PR preview
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency: preview-${{ github.event.number }}
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: github.event.action != 'closed'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install and build
+        if: github.event.action != 'closed'
+        run: |
+          npm install
+          npm run build
+
+      - name: Deploy preview
+        if: github.event.action != 'closed'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist
+          branch: gh-pages
+          target-folder: pr/${{ github.event.number }}
+          force: false
+          clean: true
+
+      - name: Comment preview URL
+        if: github.event.action != 'closed'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-preview
+          message: |
+            Preview: https://markovigele.github.io/aether/pr/${{ github.event.number }}/
+
+      - name: Empty preview folder
+        if: github.event.action == 'closed'
+        run: mkdir -p empty-preview && touch empty-preview/.keep
+
+      - name: Remove preview
+        if: github.event.action == 'closed'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: empty-preview
+          branch: gh-pages
+          target-folder: pr/${{ github.event.number }}
+          force: false
+          clean: true
+
+      - name: Comment preview removed
+        if: github.event.action == 'closed'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-preview
+          message: |
+            Preview removed.

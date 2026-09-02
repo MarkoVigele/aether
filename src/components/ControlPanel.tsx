@@ -17,8 +17,10 @@ import type {
   QualityLevel,
   SimSettings,
 } from '@/simulation/types'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { useIsNarrow } from '@/lib/media'
 import { EatMatrix, ForceMatrix, speciesColors } from './ForceMatrix'
+import { DisplayFpsField } from './DisplayFpsField'
 import { Section } from './Section'
 import { SliderRow } from './SliderRow'
 import { ToggleRow } from './ToggleRow'
@@ -27,19 +29,46 @@ type ControlPanelProps = {
   settings: SimSettings
   onChange: (settings: SimSettings) => void
   onRandomForces: () => void
+  exclusive?: boolean
+  exclusiveOpen?: string | null
+  onExclusiveOpen?: (id: string | null) => void
 }
 
 function patch(settings: SimSettings, partial: Partial<SimSettings>): SimSettings {
   return { ...settings, ...partial }
 }
 
-export function ControlPanel({ settings, onChange, onRandomForces }: ControlPanelProps) {
+export function ControlPanel({
+  settings,
+  onChange,
+  onRandomForces,
+  exclusive,
+  exclusiveOpen,
+  onExclusiveOpen,
+}: ControlPanelProps) {
   const colors = speciesColors(settings.palette, settings.speciesCount)
+  const narrow = useIsNarrow()
+  const oneOpen = exclusive ?? narrow
+  const [openId, setOpenId] = useState<string | null>('world')
   const set = (partial: Partial<SimSettings>) => onChange(patch(settings, partial))
+  const activeId = oneOpen ? (exclusiveOpen ?? openId) : openId
+
+  const setSection = (id: string | null) => {
+    setOpenId(id)
+    onExclusiveOpen?.(id)
+  }
+
+  const sectionProps = (id: string, desktopDefault = false) =>
+    oneOpen
+      ? {
+          open: activeId === id,
+          onOpenChange: (next: boolean) => setSection(next ? id : null),
+        }
+      : { defaultOpen: desktopDefault }
 
   return (
     <div className="grid gap-1">
-      <Section title="World" defaultOpen>
+      <Section title="World" {...sectionProps('world', true)}>
         <SliderRow
           label="Population cap"
           value={settings.particleCount}
@@ -75,7 +104,7 @@ export function ControlPanel({ settings, onChange, onRandomForces }: ControlPane
         />
       </Section>
 
-      <Section title="Physics" defaultOpen>
+      <Section title="Physics" {...sectionProps('physics')}>
         <SliderRow
           label="Friction"
           value={settings.friction}
@@ -197,7 +226,7 @@ export function ControlPanel({ settings, onChange, onRandomForces }: ControlPane
         />
       </Section>
 
-      <Section title="Forces" defaultOpen>
+      <Section title="Forces" {...sectionProps('forces', true)}>
         <ForceMatrix
           matrix={settings.forceMatrix}
           colors={colors}
@@ -208,7 +237,7 @@ export function ControlPanel({ settings, onChange, onRandomForces }: ControlPane
         </Button>
       </Section>
 
-      <Section title="Life">
+      <Section title="Life" {...sectionProps('life')}>
         <ToggleRow
           label="Living agents"
           checked={settings.lifeEnabled}
@@ -304,7 +333,7 @@ export function ControlPanel({ settings, onChange, onRandomForces }: ControlPane
         />
       </Section>
 
-      <Section title="Agent mind">
+      <Section title="Agent mind" {...sectionProps('mind')}>
         <ToggleRow
           label="Steering AI"
           checked={settings.aiEnabled}
@@ -377,7 +406,11 @@ export function ControlPanel({ settings, onChange, onRandomForces }: ControlPane
         />
       </Section>
 
-      <Section title="Look">
+      <Section title="Look" {...sectionProps('look')}>
+        <DisplayFpsField
+          value={settings.displayFps}
+          onChange={(displayFps) => set({ displayFps })}
+        />
         <Field label="Quality">
           <Select
             value={settings.quality}
@@ -460,7 +493,7 @@ export function ControlPanel({ settings, onChange, onRandomForces }: ControlPane
         />
       </Section>
 
-      <Section title="Pointer">
+      <Section title="Pointer" {...sectionProps('pointer')}>
         <Field label="Drag action">
           <Select
             value={settings.mouseMode}
