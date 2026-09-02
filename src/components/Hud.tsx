@@ -44,15 +44,15 @@ export function Hud({
         aria-expanded={open}
         aria-label={open ? 'Hide stats' : 'Show stats'}
       >
-        <span className="inline-flex items-center gap-0.5 font-mono text-[10px] tabular-nums text-white/38">
+        <span className="inline-flex items-center gap-0.5 font-mono text-[10px] tabular-nums text-white/50">
           {stats.fps.toFixed(0)} fps
           <ChevronDown
-            className={cn('size-2.5 text-white/28 transition-transform', open && 'rotate-180')}
+            className={cn('size-2.5 text-white/35 transition-transform', open && 'rotate-180')}
             aria-hidden
           />
         </span>
         {open ? (
-          <span className="mt-1 grid gap-0.5 font-mono text-[10px] leading-snug text-white/42">
+          <span className="mt-1 grid gap-0.5 font-mono text-[10px] leading-snug text-white/48">
             <span>
               {stats.population} alive · {stats.births} births · {stats.deaths} deaths
             </span>
