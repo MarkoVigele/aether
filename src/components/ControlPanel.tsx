@@ -20,6 +20,7 @@ import type {
 import { useState, type ReactNode } from 'react'
 import { useIsNarrow } from '@/lib/media'
 import { EatMatrix, ForceMatrix, speciesColors } from './ForceMatrix'
+import { DisplayFpsField } from './DisplayFpsField'
 import { Section } from './Section'
 import { SliderRow } from './SliderRow'
 import { ToggleRow } from './ToggleRow'
@@ -406,6 +407,10 @@ export function ControlPanel({
       </Section>
 
       <Section title="Look" {...sectionProps('look')}>
+        <DisplayFpsField
+          value={settings.displayFps}
+          onChange={(displayFps) => set({ displayFps })}
+        />
         <Field label="Quality">
           <Select
             value={settings.quality}

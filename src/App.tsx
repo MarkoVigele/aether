@@ -153,7 +153,11 @@ export default function App() {
     const preset = PRESETS.find((p) => p.id === id)
     if (!preset) return
     setPresetId(id)
-    setSettings(cloneSettings(preset.apply()))
+    setSettings((current) => {
+      const next = cloneSettings(preset.apply())
+      next.displayFps = current.displayFps
+      return next
+    })
     setSeed((Math.random() * 1_000_000) | 0)
     setResetKey((n) => n + 1)
   }, [])

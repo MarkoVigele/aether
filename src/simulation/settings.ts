@@ -1,4 +1,5 @@
 import { clamp, mulberry32 } from '@/lib/utils'
+import { isDisplayFps } from './clock'
 import type { SimSettings } from './types'
 
 export const MAX_SPECIES = 8
@@ -127,6 +128,7 @@ export function hydrateSettings(raw: unknown): SimSettings {
   }
   if (isPalette(saved.palette)) next.palette = saved.palette
   if (isQuality(saved.quality)) next.quality = saved.quality
+  if (isDisplayFps(saved.displayFps)) next.displayFps = saved.displayFps
   if (isBoundary(saved.boundary)) next.boundary = saved.boundary
   if (isGravity(saved.gravityMode)) next.gravityMode = saved.gravityMode
   if (isMouse(saved.mouseMode)) next.mouseMode = saved.mouseMode
@@ -167,6 +169,7 @@ export function defaultSettings(): SimSettings {
     particleCount: 720,
     speciesCount,
     timeScale: 1,
+    displayFps: 60,
 
     friction: 0.22,
     maxSpeed: 210,

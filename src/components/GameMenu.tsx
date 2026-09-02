@@ -13,6 +13,7 @@ import { paletteList } from '@/simulation/palettes'
 import type { PaletteId, SimSettings } from '@/simulation/types'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { stageTranslate, useSnapSheet, type SheetStage } from '@/lib/sheetDrag'
+import { DisplayFpsField } from './DisplayFpsField'
 import { SliderRow } from './SliderRow'
 import { ToggleRow } from './ToggleRow'
 
@@ -143,6 +144,10 @@ export function GameMenu({
               new options with defaults. You will see a warning only if a future change must
               reset incompatible data.
             </p>
+            <DisplayFpsField
+              value={settings.displayFps}
+              onChange={(displayFps) => set({ displayFps })}
+            />
             <Field label="Palette">
               <Select
                 value={settings.palette}

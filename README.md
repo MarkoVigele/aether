@@ -19,7 +19,7 @@ Oder einfach den Live-Link öffnen, ohne Installation.
 
 ## In der Anwendung
 
-Ziehen mit der Maus: je nach Einstellung anziehen, abstoßen oder neue Punkte setzen. Die Seitenleiste steuert Physik, Arten und Farben.
+Ziehen mit der Maus: je nach Einstellung anziehen, abstoßen oder neue Punkte setzen. Die Seitenleiste steuert Physik, Arten und Farben. Die Welt läuft in festem Takt; die Bildrate (Standard 60) stellst du unter Look ein.
 
 Auf dem Handy: unten Pause, Panel, Reset. Das Einstellungsblatt bleibt niedrig, das Feld bleibt sichtbar.
 
