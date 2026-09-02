@@ -9,6 +9,8 @@ type SimulationCanvasProps = {
   resetKey: number
   seed: number
   onStats: (stats: SimStats) => void
+  dismissOnTap?: boolean
+  onFieldTap?: () => void
 }
 
 export function SimulationCanvas({
@@ -17,6 +19,8 @@ export function SimulationCanvas({
   resetKey,
   seed,
   onStats,
+  dismissOnTap = false,
+  onFieldTap,
 }: SimulationCanvasProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -25,10 +29,14 @@ export function SimulationCanvas({
   const settingsRef = useRef(settings)
   const pausedRef = useRef(paused)
   const onStatsRef = useRef(onStats)
+  const dismissOnTapRef = useRef(dismissOnTap)
+  const onFieldTapRef = useRef(onFieldTap)
 
   settingsRef.current = settings
   pausedRef.current = paused
   onStatsRef.current = onStats
+  dismissOnTapRef.current = dismissOnTap
+  onFieldTapRef.current = onFieldTap
 
   const resizeRef = useRef<(() => void) | null>(null)
 
@@ -124,6 +132,10 @@ export function SimulationCanvas({
     }
 
     const onDown = (event: PointerEvent) => {
+      if (dismissOnTapRef.current) {
+        onFieldTapRef.current?.()
+        return
+      }
       canvas.setPointerCapture(event.pointerId)
       engine.mouse.down = true
       onPointer(event)

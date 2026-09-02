@@ -13,7 +13,7 @@ import { Hud } from '@/components/Hud'
 import { SimulationCanvas } from '@/components/SimulationCanvas'
 import { Button } from '@/components/ui/button'
 import { isNarrowViewport, useIsNarrow } from '@/lib/media'
-import { useFieldTapDismiss, useSheetDrag } from '@/lib/sheetDrag'
+import { useSheetDrag } from '@/lib/sheetDrag'
 import {
   exportPersistedJson,
   loadPersisted,
@@ -70,7 +70,6 @@ export default function App() {
     }
     if (panelOpen && !pointerToolOpen) setPanelOpen(false)
   }, [menuOpen, panelOpen, pointerToolOpen])
-  const fieldDismiss = useFieldTapDismiss(dismissField)
   const closePanel = useCallback(() => setPanelOpen(false), [])
   const sheetDrag = useSheetDrag(closePanel, narrow && panelOpen)
 
@@ -210,6 +209,8 @@ export default function App() {
         resetKey={resetKey}
         seed={seed}
         panelOpen={panelOpen}
+        dismissOnTap={narrow && (menuOpen || (panelOpen && !pointerToolOpen))}
+        onFieldTap={dismissField}
         onTogglePause={() => setPaused((v) => !v)}
         onReset={reset}
         onRandomize={newUniverse}
@@ -218,15 +219,6 @@ export default function App() {
       />
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(0,0,0,0.55)_100%)]" />
-
-      {narrow && (panelOpen || menuOpen) && !pointerToolOpen ? (
-        <div
-          className="absolute inset-0 z-[15] md:hidden"
-          style={{ bottom: 'var(--dock-space)' }}
-          {...fieldDismiss}
-          role="presentation"
-        />
-      ) : null}
 
       {notice ? (
         <div className="absolute inset-x-0 top-0 z-40 flex justify-center p-3 pt-20">
@@ -289,7 +281,8 @@ export default function App() {
             settings={settings}
             onChange={setSettings}
             onRandomForces={shuffleForces}
-            exclusiveOpen={narrow ? sheetSection : undefined}
+            exclusive={narrow}
+            exclusiveOpen={sheetSection}
             onExclusiveOpen={setSheetSection}
           />
         </div>
@@ -392,6 +385,8 @@ function LiveField({
   resetKey,
   seed,
   panelOpen,
+  dismissOnTap,
+  onFieldTap,
   onTogglePause,
   onReset,
   onRandomize,
@@ -403,6 +398,8 @@ function LiveField({
   resetKey: number
   seed: number
   panelOpen: boolean
+  dismissOnTap?: boolean
+  onFieldTap?: () => void
   onTogglePause: () => void
   onReset: () => void
   onRandomize: () => void
@@ -418,6 +415,8 @@ function LiveField({
         resetKey={resetKey}
         seed={seed}
         onStats={setStats}
+        dismissOnTap={dismissOnTap}
+        onFieldTap={onFieldTap}
       />
       <Hud
         stats={stats}

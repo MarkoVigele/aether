@@ -28,6 +28,7 @@ type ControlPanelProps = {
   settings: SimSettings
   onChange: (settings: SimSettings) => void
   onRandomForces: () => void
+  exclusive?: boolean
   exclusiveOpen?: string | null
   onExclusiveOpen?: (id: string | null) => void
 }
@@ -40,14 +41,16 @@ export function ControlPanel({
   settings,
   onChange,
   onRandomForces,
+  exclusive,
   exclusiveOpen,
   onExclusiveOpen,
 }: ControlPanelProps) {
   const colors = speciesColors(settings.palette, settings.speciesCount)
-  const exclusive = useIsNarrow()
+  const narrow = useIsNarrow()
+  const oneOpen = exclusive ?? narrow
   const [openId, setOpenId] = useState<string | null>('world')
   const set = (partial: Partial<SimSettings>) => onChange(patch(settings, partial))
-  const activeId = exclusive && exclusiveOpen !== undefined ? exclusiveOpen : openId
+  const activeId = oneOpen ? (exclusiveOpen ?? openId) : openId
 
   const setSection = (id: string | null) => {
     setOpenId(id)
@@ -55,7 +58,7 @@ export function ControlPanel({
   }
 
   const sectionProps = (id: string, desktopDefault = false) =>
-    exclusive
+    oneOpen
       ? {
           open: activeId === id,
           onOpenChange: (next: boolean) => setSection(next ? id : null),
