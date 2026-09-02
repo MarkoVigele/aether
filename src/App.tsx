@@ -13,7 +13,7 @@ import { Hud } from '@/components/Hud'
 import { SimulationCanvas } from '@/components/SimulationCanvas'
 import { Button } from '@/components/ui/button'
 import { isNarrowViewport, useIsNarrow } from '@/lib/media'
-import { useSheetDrag } from '@/lib/sheetDrag'
+import { stageTranslate, useSnapSheet, type SheetStage } from '@/lib/sheetDrag'
 import {
   exportPersistedJson,
   loadPersisted,
@@ -57,31 +57,52 @@ export default function App() {
   const [panelOpen, setPanelOpen] = useState(() =>
     isNarrowViewport() ? false : initial.bundle.panelOpen,
   )
+  const [sheetStage, setSheetStage] = useState<SheetStage>(() =>
+    isNarrowViewport() ? 'closed' : 'closed',
+  )
   const [presetId, setPresetId] = useState(() => initial.bundle.presetId)
   const [menuOpen, setMenuOpen] = useState(false)
   const [sheetSection, setSheetSection] = useState<string | null>('world')
   const [notice, setNotice] = useState<PersistNotice>(initial.notice)
   const narrow = useIsNarrow()
-  const pointerToolOpen = panelOpen && sheetSection === 'pointer'
+  const mobileOpen = narrow ? sheetStage !== 'closed' : panelOpen
+  const pointerToolOpen = mobileOpen && sheetSection === 'pointer'
+  const closePanel = useCallback(() => {
+    setPanelOpen(false)
+    setSheetStage('closed')
+  }, [])
+  const openPanelMid = useCallback(() => {
+    setPanelOpen(true)
+    setSheetStage('mid')
+  }, [])
+  const togglePanel = useCallback(() => {
+    if (narrow) {
+      if (sheetStage === 'closed') openPanelMid()
+      else closePanel()
+      return
+    }
+    setPanelOpen((v) => !v)
+  }, [closePanel, narrow, openPanelMid, sheetStage])
   const dismissField = useCallback(() => {
     if (menuOpen) {
       setMenuOpen(false)
       return
     }
-    if (panelOpen && !pointerToolOpen) setPanelOpen(false)
-  }, [menuOpen, panelOpen, pointerToolOpen])
-  const closePanel = useCallback(() => setPanelOpen(false), [])
-  const sheetDrag = useSheetDrag(closePanel, narrow && panelOpen)
+    if (mobileOpen && !pointerToolOpen) closePanel()
+  }, [closePanel, menuOpen, mobileOpen, pointerToolOpen])
+  const onSheetStage = useCallback((next: SheetStage) => {
+    setSheetStage(next)
+    setPanelOpen(next !== 'closed')
+  }, [])
+  const sheetDrag = useSnapSheet(narrow && sheetStage !== 'closed', sheetStage, onSheetStage)
 
   useEffect(() => {
     if (!narrow || sheetDrag.dragging) return
     const node = sheetDrag.sheetRef.current
     if (!node) return
     node.style.transition = 'transform 300ms'
-    node.style.transform = panelOpen
-      ? 'translateY(0px)'
-      : 'translateY(calc(100% + var(--dock-space) + 0.75rem))'
-  }, [narrow, panelOpen, sheetDrag.dragging, sheetDrag.sheetRef])
+    node.style.transform = stageTranslate(sheetStage)
+  }, [narrow, sheetDrag.dragging, sheetDrag.sheetRef, sheetStage])
 
   const bg = useMemo(() => PALETTES[settings.palette].background, [settings.palette])
 
@@ -105,7 +126,7 @@ export default function App() {
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767.98px)')
     const onChange = () => {
-      if (media.matches) setPanelOpen(false)
+      if (media.matches) closePanel()
     }
     media.addEventListener('change', onChange)
     return () => media.removeEventListener('change', onChange)
@@ -151,6 +172,7 @@ export default function App() {
     savePersisted(bundle)
     setSettings(bundle.settings)
     setPanelOpen(bundle.panelOpen)
+    setSheetStage(bundle.panelOpen && isNarrowViewport() ? 'mid' : 'closed')
     setPresetId(bundle.presetId)
     setSeed((Math.random() * 1_000_000) | 0)
     setResetKey((n) => n + 1)
@@ -185,7 +207,7 @@ export default function App() {
       } else if (event.key === 'n' || event.key === 'N') {
         newUniverse()
       } else if (event.key === 'c' || event.key === 'C') {
-        setPanelOpen((v) => !v)
+        togglePanel()
       } else if (event.key >= '1' && event.key <= '6') {
         const index = Number(event.key) - 1
         if (event.shiftKey) {
@@ -199,7 +221,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [applyPreset, loadSaved, menuOpen, newUniverse, reset])
+  }, [applyPreset, loadSaved, menuOpen, newUniverse, reset, togglePanel])
 
   return (
     <div className="relative h-svh h-dvh w-full overflow-hidden" style={{ background: bg }}>
@@ -208,13 +230,13 @@ export default function App() {
         paused={paused || menuOpen}
         resetKey={resetKey}
         seed={seed}
-        panelOpen={panelOpen}
-        dismissOnTap={narrow && (menuOpen || (panelOpen && !pointerToolOpen))}
+        panelOpen={mobileOpen}
+        dismissOnTap={narrow && (menuOpen || (mobileOpen && !pointerToolOpen))}
         onFieldTap={dismissField}
         onTogglePause={() => setPaused((v) => !v)}
         onReset={reset}
         onRandomize={newUniverse}
-        onTogglePanel={() => setPanelOpen((v) => !v)}
+        onTogglePanel={togglePanel}
         onOpenMenu={() => setMenuOpen(true)}
       />
 
@@ -243,17 +265,18 @@ export default function App() {
 
       <aside
         ref={sheetDrag.sheetRef as Ref<HTMLElement>}
-        className={`absolute inset-x-0 z-30 flex max-h-[min(42svh,42dvh)] flex-col overflow-hidden border-t border-white/10 bg-[#07080d]/82 backdrop-blur-xl md:inset-y-0 md:right-0 md:bottom-auto md:left-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l md:transition-transform md:duration-300 ${
+        className={`absolute inset-x-0 z-30 flex max-md:h-[var(--sheet-high)] max-md:max-h-[var(--sheet-high)] flex-col overflow-hidden border-t border-white/10 bg-[#07080d]/82 backdrop-blur-xl md:inset-y-0 md:right-0 md:bottom-auto md:left-auto md:h-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l md:transition-transform md:duration-300 ${
           sheetDrag.dragging ? '' : 'max-md:transition-transform max-md:duration-300'
         } ${
-          panelOpen
+          mobileOpen
             ? 'md:translate-x-0'
             : 'max-md:pointer-events-none md:pointer-events-auto md:translate-x-full'
         }`}
+        data-sheet={narrow ? sheetStage : undefined}
         style={{ bottom: 'var(--dock-space)' }}
       >
         <SheetHeader
-          onClose={() => setPanelOpen(false)}
+          onClose={closePanel}
           onOpenMenu={() => setMenuOpen(true)}
           onGrabberDown={sheetDrag.bind.onPointerDown}
         />
@@ -302,9 +325,9 @@ export default function App() {
           Pause
         </Button>
         <Button
-          variant={panelOpen ? 'default' : 'secondary'}
+          variant={mobileOpen ? 'default' : 'secondary'}
           className="h-11 min-w-11 px-3.5 [&_svg]:size-5"
-          onClick={() => setPanelOpen((v) => !v)}
+          onClick={togglePanel}
         >
           <SlidersHorizontal />
           Panel
@@ -348,7 +371,7 @@ function SheetHeader({
     <div className="sticky top-0 z-10 border-b border-white/8 bg-[#07080d]/90 px-4 pt-0 pb-2 backdrop-blur-xl md:static md:pt-3 md:pb-3">
       <div
         className="flex min-h-11 cursor-grab touch-none items-center justify-center active:cursor-grabbing md:hidden"
-        aria-label="Ziehen zum Schließen"
+        aria-label="Blatt ziehen"
         onPointerDown={onGrabberDown}
       >
         <span className="h-1 w-10 rounded-full bg-white/35" aria-hidden />

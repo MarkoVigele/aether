@@ -97,11 +97,26 @@
 @media (max-width: 767.98px) {
   :root {
     --dock-space: calc(2.75rem + 0.7rem + env(safe-area-inset-bottom, 0px));
+    --sheet-mid: min(42svh, 42dvh);
+    --sheet-high: min(76svh, 76dvh);
+    --sheet-lift: calc(var(--sheet-high) - var(--sheet-mid));
   }
 
   .touch-target {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  [data-sheet='closed'] {
+    transform: translateY(calc(100% + var(--dock-space) + 0.75rem));
+  }
+
+  [data-sheet='mid'] {
+    transform: translateY(var(--sheet-lift));
+  }
+
+  [data-sheet='high'] {
+    transform: translateY(0);
   }
 }
 
