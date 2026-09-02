@@ -11,8 +11,8 @@ import { bundleFromUnknown, type PersistedBundle } from '@/lib/persist'
 import { clearSlot, loadSlots, writeSlot, type SaveSlot } from '@/lib/saveSlots'
 import { paletteList } from '@/simulation/palettes'
 import type { PaletteId, SimSettings } from '@/simulation/types'
-import { useMemo, useRef, useState, type ReactNode } from 'react'
-import { useSheetDrag } from '@/lib/sheetDrag'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { stageTranslate, useSnapSheet, type SheetStage } from '@/lib/sheetDrag'
 import { SliderRow } from './SliderRow'
 import { ToggleRow } from './ToggleRow'
 
@@ -60,20 +60,38 @@ export function GameMenu({
   }), [])
 
   const set = (partial: Partial<SimSettings>) => onChange({ ...settings, ...partial })
-  const sheetDrag = useSheetDrag(onResume, dragEnabled)
+  const [stage, setStage] = useState<SheetStage>('mid')
+  const onStage = (next: SheetStage) => {
+    if (next === 'closed') {
+      window.setTimeout(onResume, 280)
+      return
+    }
+    setStage(next)
+  }
+  const sheetDrag = useSnapSheet(dragEnabled, stage, onStage)
+
+  useEffect(() => {
+    if (!dragEnabled || sheetDrag.dragging) return
+    const node = sheetDrag.sheetRef.current
+    if (!node) return
+    node.style.transition = 'transform 300ms'
+    node.style.transform = stageTranslate(stage)
+  }, [dragEnabled, sheetDrag.dragging, sheetDrag.sheetRef, stage])
 
   return (
-    <div className="absolute inset-x-0 bottom-[var(--dock-space)] z-50 flex items-end justify-center md:inset-0 md:items-center md:bg-black/62 md:p-6 md:backdrop-blur-md">
+    <div className="absolute inset-x-0 bottom-[var(--dock-space)] z-50 max-md:contents md:inset-0 md:flex md:items-center md:justify-center md:bg-black/62 md:p-6 md:backdrop-blur-md">
       <div
         ref={sheetDrag.sheetRef}
-        className={`flex max-h-[min(45svh,45dvh)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d14]/94 shadow-2xl md:max-h-[92svh] md:rounded-2xl ${
-          sheetDrag.dragging ? '' : 'transition-transform duration-300'
+        data-sheet={dragEnabled ? stage : undefined}
+        className={`flex w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d14]/94 shadow-2xl max-md:absolute max-md:inset-x-0 max-md:z-50 max-md:h-[var(--sheet-high)] max-md:max-h-[var(--sheet-high)] md:max-h-[92svh] md:rounded-2xl ${
+          sheetDrag.dragging ? '' : 'max-md:transition-transform max-md:duration-300'
         }`}
+        style={dragEnabled ? { bottom: 'var(--dock-space)' } : undefined}
       >
         <div className="sticky top-0 z-10 border-b border-white/8 bg-[#0b0d14]/94 px-4 pt-0 pb-3 md:px-5 md:pt-4 md:pb-4">
           <div
             className="flex min-h-11 cursor-grab touch-none items-center justify-center active:cursor-grabbing md:hidden"
-            aria-label="Ziehen zum Schließen"
+            aria-label="Blatt ziehen"
             onPointerDown={sheetDrag.bind.onPointerDown}
           >
             <span className="h-1 w-10 rounded-full bg-white/35" aria-hidden />
