@@ -60,7 +60,7 @@ export function GameMenu({
 
   return (
     <div className="absolute inset-x-0 bottom-[var(--dock-space)] z-50 flex items-end justify-center md:inset-0 md:items-center md:bg-black/62 md:p-6 md:backdrop-blur-md">
-      <div className="flex max-h-[48svh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d14]/94 shadow-2xl md:max-h-[92svh] md:rounded-2xl">
+      <div className="flex max-h-[min(45svh,45dvh)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d14]/94 shadow-2xl md:max-h-[92svh] md:rounded-2xl">
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-white/8 bg-[#0b0d14]/94 px-4 py-3 md:px-5 md:py-4">
           <div>
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/25 md:hidden" aria-hidden />

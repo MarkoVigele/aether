@@ -209,8 +209,10 @@ export default function App() {
       ) : null}
 
       <aside
-        className={`absolute inset-x-0 z-30 flex max-h-[42svh] flex-col overflow-hidden border-t border-white/10 bg-[#07080d]/82 backdrop-blur-xl transition-transform duration-300 md:inset-y-0 md:right-0 md:bottom-auto md:left-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l ${
-          panelOpen ? 'translate-y-0 md:translate-x-0' : 'translate-y-full md:translate-y-0 md:translate-x-full'
+        className={`absolute inset-x-0 z-30 flex max-h-[min(42svh,42dvh)] flex-col overflow-hidden border-t border-white/10 bg-[#07080d]/82 backdrop-blur-xl transition-transform duration-300 md:inset-y-0 md:right-0 md:bottom-auto md:left-auto md:max-h-none md:w-[360px] md:border-t-0 md:border-l ${
+          panelOpen
+            ? 'translate-y-0 md:translate-x-0'
+            : 'pointer-events-none translate-y-[calc(100%+var(--dock-space)+0.75rem)] md:pointer-events-auto md:translate-y-0 md:translate-x-full'
         }`}
         style={{ bottom: 'var(--dock-space)' }}
       >
