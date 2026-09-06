@@ -21,6 +21,8 @@ Oder einfach den Live-Link öffnen, ohne Installation.
 
 Ziehen mit der Maus: je nach Einstellung anziehen, abstoßen oder neue Punkte setzen. Die Seitenleiste steuert Physik, Arten und Farben. Die Welt läuft in festem Takt; die Bildrate (Standard 60) stellst du unter Look ein.
 
+Oben links steht nur die Bildrate — ohne Seed, gut für Screenshots. Antippen auf die FPS-Zahl klappt Stats und Seed auf. Dasselbe von Anfang an mit `?hud=full` oder `?seed=1`.
+
 Auf dem Handy: unten Pause, Panel, Reset. Das Einstellungsblatt bleibt niedrig, das Feld bleibt sichtbar.
 
 | Taste | Wirkung |

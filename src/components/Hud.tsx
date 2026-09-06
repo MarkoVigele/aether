@@ -5,6 +5,18 @@ import type { PaletteId, SimStats } from '@/simulation/types'
 import { ChevronDown, Dices, Menu, Pause, Play, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
 
+function flagOn(value: string | null) {
+  if (!value) return false
+  const v = value.toLowerCase()
+  return v === '1' || v === 'true' || v === 'yes' || v === 'full'
+}
+
+/** Seed/debug lines stay closed unless ?seed=1 or ?hud=full. */
+export function hudOpenFromSearch(search = typeof window === 'undefined' ? '' : window.location.search) {
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  return flagOn(params.get('hud')) || flagOn(params.get('seed'))
+}
+
 type HudProps = {
   stats: SimStats
   paused: boolean
@@ -32,7 +44,7 @@ export function Hud({
   onTogglePanel,
   onOpenMenu,
 }: HudProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(hudOpenFromSearch)
   const colors = PALETTES[palette].colors
 
   return (
@@ -47,6 +59,7 @@ export function Hud({
         <span
           className="inline-flex items-center gap-0.5 font-mono text-[10px] tabular-nums text-white/50"
           data-fps={stats.fps.toFixed(0)}
+          data-seed={seed}
         >
           {stats.fps.toFixed(0)} fps
           <ChevronDown
