@@ -36,6 +36,19 @@ export function trailBufferScaleForView(
   return scale
 }
 
+function snapTrailDim(n: number) {
+  return Math.max(1, Math.round(n / 16) * 16)
+}
+
+/** Integer trail canvas size. Snapped so 1px view jitter does not realloc. */
+export function trailBufferSize(quality: QualityLevel, width: number, height: number) {
+  const scale = trailBufferScaleForView(quality, width, height)
+  return {
+    width: snapTrailDim(width * scale),
+    height: snapTrailDim(height * scale),
+  }
+}
+
 /**
  * Black overlay alpha each frame. Floor stays high enough that abandoned
  * paths cannot hang as 8-bit gray fog.
@@ -53,16 +66,6 @@ export function trailPunchByte(trail: number) {
   if (trail <= 0.01) return 0
   if (trail < 0.4) return 3
   if (trail < 0.7) return 2
-  return 1
-}
-
-export function trailCompositeContrast(trail: number) {
-  if (trail >= 0.7) return 1
-  if (trail < 0.35) return 1.12
-  return 1.04
-}
-
-export function trailCompositeBrightness(_trail: number) {
   return 1
 }
 

@@ -5,6 +5,13 @@ export const SIM_DT = 1 / 60
 export const MAX_FRAME_SEC = 0.25
 export const MAX_SIM_STEPS = 8
 
+/** Once a frame is already late, do not catch up with 8 physics steps (death spiral). */
+export function adaptiveMaxSimSteps(fps: number) {
+  if (fps > 0 && fps < 18) return 2
+  if (fps > 0 && fps < 26) return 3
+  return MAX_SIM_STEPS
+}
+
 export function isDisplayFps(value: unknown): value is DisplayFps {
   return value === 30 || value === 60 || value === 120 || value === 'auto'
 }

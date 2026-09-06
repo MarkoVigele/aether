@@ -1,5 +1,11 @@
 import { useEffect, useRef } from 'react'
-import { ingestSimTime, shouldDrawFrame, SIM_DT, takeSimSteps } from '@/simulation/clock'
+import {
+  adaptiveMaxSimSteps,
+  ingestSimTime,
+  shouldDrawFrame,
+  SIM_DT,
+  takeSimSteps,
+} from '@/simulation/clock'
 import { Engine } from '@/simulation/engine'
 import { displayDpr, Renderer } from '@/simulation/renderer'
 import type { SimSettings, SimStats } from '@/simulation/types'
@@ -102,7 +108,7 @@ export function SimulationCanvas({
 
       if (!pausedRef.current) {
         acc = ingestSimTime(acc, elapsed, settings.timeScale)
-        const taken = takeSimSteps(acc)
+        const taken = takeSimSteps(acc, SIM_DT, adaptiveMaxSimSteps(engine.stats.fps))
         acc = taken.acc
         for (let i = 0; i < taken.steps; i++) engine.step(SIM_DT)
       }

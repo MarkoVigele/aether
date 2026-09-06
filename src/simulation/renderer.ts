@@ -1,8 +1,8 @@
 import { hexToRgb } from '@/lib/utils'
+import { MAX_SPECIES } from './settings'
 import { PALETTES } from './palettes'
 import {
-  trailBufferScaleForView,
-  trailCompositeContrast,
+  trailBufferSize,
   trailCoreWidth,
   trailDeposit,
   trailFadeAlpha,
@@ -57,6 +57,7 @@ export class Renderer {
   private trail: HTMLCanvasElement | null = null
   private trailCtx: CanvasRenderingContext2D | null = null
   private linkQuery: number[] = []
+  private veilGroups: Particle[][] = Array.from({ length: MAX_SPECIES }, () => [])
 
   sprite(hex: string) {
     let cached = this.sprites.get(hex)
@@ -77,32 +78,28 @@ export class Renderer {
   ) {
     this.palette = PALETTES[settings.palette]
 
-    const scale = trailBufferScaleForView(settings.quality, width, height)
-    const trailCtx = this.ensureTrail(width, height, scale)
+    const size = trailBufferSize(settings.quality, width, height)
+    const trailCtx = this.ensureTrail(size.width, size.height)
     const tw = trailCtx.canvas.width
     const th = trailCtx.canvas.height
 
     this.decayTrail(trailCtx, tw, th, settings.trail)
 
-    trailCtx.save()
-    trailCtx.scale(tw / width, th / height)
-    trailCtx.globalCompositeOperation = 'lighter'
     const particles = engine.particles
-    this.drawVeil(trailCtx, particles, settings)
-    trailCtx.restore()
+    trailCtx.setTransform(tw / width, 0, 0, th / height, 0, 0)
+    trailCtx.globalCompositeOperation = 'lighter'
+    try {
+      this.drawVeil(trailCtx, particles, settings)
+    } finally {
+      trailCtx.setTransform(1, 0, 0, 1, 0, 0)
+    }
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.globalCompositeOperation = 'source-over'
     ctx.fillStyle = this.palette.background
     ctx.fillRect(0, 0, width, height)
-
-    const contrast = trailCompositeContrast(settings.trail)
-    if (contrast !== 1) {
-      ctx.filter = `contrast(${contrast})`
-    }
     ctx.globalCompositeOperation = 'lighter'
     ctx.drawImage(trailCtx.canvas, 0, 0, width, height)
-    ctx.filter = 'none'
 
     ctx.globalCompositeOperation = 'source-over'
     const fpsOk = engine.stats.fps > 26 || engine.stats.fps === 0
@@ -140,11 +137,10 @@ export class Renderer {
     this.trail = null
     this.trailCtx = null
     this.linkQuery.length = 0
+    for (const group of this.veilGroups) group.length = 0
   }
 
-  private ensureTrail(width: number, height: number, scale: number) {
-    const tw = Math.max(1, Math.floor(width * scale))
-    const th = Math.max(1, Math.floor(height * scale))
+  private ensureTrail(tw: number, th: number) {
     if (this.trail && this.trailCtx && this.trail.width === tw && this.trail.height === th) {
       return this.trailCtx
     }
@@ -152,7 +148,7 @@ export class Renderer {
     const canvas = document.createElement('canvas')
     canvas.width = tw
     canvas.height = th
-    const ctx = canvas.getContext('2d', { alpha: false })
+    const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: false })
     if (!ctx) throw new Error('trail context failed')
     ctx.fillStyle = '#000'
     ctx.fillRect(0, 0, tw, th)
@@ -207,9 +203,10 @@ export class Renderer {
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
 
-    const groups: Particle[][] = []
+    const groups = this.veilGroups
+    for (const group of groups) group.length = 0
     for (const p of particles) {
-      const list = groups[p.type] ?? (groups[p.type] = [])
+      const list = groups[p.type % groups.length]
       list.push(p)
     }
 

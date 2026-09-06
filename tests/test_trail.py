@@ -68,8 +68,20 @@ def trail_use_mid_layer(trail: float, quality: str) -> bool:
     return trail >= 0.48
 
 
+def adaptive_max_sim_steps(fps: float) -> int:
+    if fps > 0 and fps < 18:
+        return 2
+    if fps > 0 and fps < 26:
+        return 3
+    return 8
+
+
 def test_default_trail_is_gentle() -> None:
     assert DEFAULT_TRAIL == 0.37
+
+
+def snap_trail_dim(n: float) -> int:
+    return max(1, round(n / 16) * 16)
 
 
 def test_buffer_is_capped_below_full_res() -> None:
@@ -77,6 +89,7 @@ def test_buffer_is_capped_below_full_res() -> None:
     assert trail_buffer_scale("balanced") == 0.7
     assert trail_buffer_scale("beautiful") == 0.85
     assert trail_buffer_max_pixels("balanced") <= 760_000
+    assert snap_trail_dim(800 * 0.7) == snap_trail_dim(803 * 0.7)
 
 
 def test_default_trail_clears_gray_fog() -> None:
@@ -115,6 +128,13 @@ def test_slider_is_monotonic() -> None:
     assert fades == sorted(fades, reverse=True)
     deposits = [trail_deposit(t) for t in (0.2, DEFAULT_TRAIL, 0.72, 0.93)]
     assert deposits == sorted(deposits)
+
+
+def test_late_frames_do_not_catch_up_with_eight_sim_steps() -> None:
+    assert adaptive_max_sim_steps(0) == 8
+    assert adaptive_max_sim_steps(60) == 8
+    assert adaptive_max_sim_steps(24) == 3
+    assert adaptive_max_sim_steps(12) == 2
 
 
 def test_wrap_and_respawn_do_not_draw_a_screen_wide_stroke() -> None:

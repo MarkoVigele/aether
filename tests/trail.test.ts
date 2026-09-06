@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { adaptiveMaxSimSteps } from '../src/simulation/clock.ts'
 import {
   applyLookQuery,
   decayStepsToZero,
@@ -7,6 +8,7 @@ import {
   trailBufferMaxPixels,
   trailBufferScale,
   trailBufferScaleForView,
+  trailBufferSize,
   trailDeposit,
   trailFadeAlpha,
   trailPunchByte,
@@ -26,6 +28,16 @@ test('buffer stays below full-res and has a pixel cap', () => {
   assert.ok(trailBufferMaxPixels('balanced') <= 760_000)
   const huge = trailBufferScaleForView('beautiful', 4000, 3000)
   assert.ok(huge * 4000 * huge * 3000 <= trailBufferMaxPixels('beautiful') + 1)
+  const a = trailBufferSize('balanced', 800, 600)
+  const b = trailBufferSize('balanced', 803, 602)
+  assert.deepEqual(a, b)
+})
+
+test('late frames do not catch up with eight sim steps', () => {
+  assert.equal(adaptiveMaxSimSteps(0), 8)
+  assert.equal(adaptiveMaxSimSteps(60), 8)
+  assert.equal(adaptiveMaxSimSteps(24), 3)
+  assert.equal(adaptiveMaxSimSteps(12), 2)
 })
 
 test('gray fog dies; colored schleier outlasts it', () => {

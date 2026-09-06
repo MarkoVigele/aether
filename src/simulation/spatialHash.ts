@@ -8,6 +8,7 @@ export class SpatialHash {
   height = 1
   wrap = true
   buckets: number[][] = [[]]
+  private scratch: [number, number] = [0, 0]
 
   resize(width: number, height: number, cellSize: number, wrap: boolean) {
     this.width = Math.max(1, width)
@@ -56,7 +57,9 @@ export class SpatialHash {
       dx = wrapDelta(dx, this.width)
       dy = wrapDelta(dy, this.height)
     }
-    return [dx, dy]
+    this.scratch[0] = dx
+    this.scratch[1] = dy
+    return this.scratch
   }
 
   private cellX(x: number) {
