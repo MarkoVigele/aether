@@ -205,40 +205,54 @@ export class Renderer {
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
 
+    const groups: Particle[][] = []
     for (const p of particles) {
-      const [r, g, b] = hexToRgb(this.colorFor(p))
-      const size = this.particleSize(p, settings)
-      const fromPrev = trailSegmentOk(p.px, p.py, p.x, p.y)
-      const fromOlder = soft && trailSegmentOk(p.qx, p.qy, p.px, p.py)
-      const curved = fromPrev && fromOlder
+      const list = groups[p.type] ?? (groups[p.type] = [])
+      list.push(p)
+    }
 
-      const strokePath = () => {
-        ctx.beginPath()
-        if (curved) {
-          ctx.moveTo(p.qx, p.qy)
-          ctx.quadraticCurveTo(p.px, p.py, p.x, p.y)
-        } else if (fromPrev) {
-          ctx.moveTo(p.px, p.py)
-          ctx.lineTo(p.x, p.y)
-        } else {
-          ctx.moveTo(p.x, p.y)
-          ctx.lineTo(p.x, p.y)
+    for (const group of groups) {
+      if (!group?.length) continue
+      const [r, g, b] = hexToRgb(this.colorFor(group[0]))
+      let sizeSum = 0
+      for (const p of group) sizeSum += this.particleSize(p, settings)
+      const size = sizeSum / group.length
+
+      const addPaths = () => {
+        for (const p of group) {
+          const fromPrev = trailSegmentOk(p.px, p.py, p.x, p.y)
+          const fromOlder = soft && trailSegmentOk(p.qx, p.qy, p.px, p.py)
+          if (fromPrev && fromOlder) {
+            ctx.moveTo(p.qx, p.qy)
+            ctx.quadraticCurveTo(p.px, p.py, p.x, p.y)
+          } else if (fromPrev) {
+            ctx.moveTo(p.px, p.py)
+            ctx.lineTo(p.x, p.y)
+          } else {
+            ctx.moveTo(p.x, p.y)
+            ctx.lineTo(p.x, p.y)
+          }
         }
-        ctx.stroke()
       }
 
       if (soft) {
         ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * 0.22})`
         ctx.lineWidth = trailVeilWidth(size)
-        strokePath()
+        ctx.beginPath()
+        addPaths()
+        ctx.stroke()
         ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * 0.4})`
         ctx.lineWidth = trailMidWidth(size)
-        strokePath()
+        ctx.beginPath()
+        addPaths()
+        ctx.stroke()
       }
 
       ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * (soft ? 0.72 : 0.82)})`
       ctx.lineWidth = trailCoreWidth(size)
-      strokePath()
+      ctx.beginPath()
+      addPaths()
+      ctx.stroke()
     }
   }
 

@@ -85,7 +85,9 @@ export function trailCoreWidth(size: number) {
 }
 
 export function applyLookQuery(settings: SimSettings, search: string): SimSettings {
+  if (!search || search === '?') return settings
   const q = new URLSearchParams(search.startsWith('?') ? search : `?${search}`)
+  if (!q.has('trail') && !q.has('glow') && !q.has('quality') && !q.has('palette')) return settings
   const next = { ...settings }
   const trail = Number(q.get('trail'))
   if (Number.isFinite(trail)) next.trail = clamp(trail, 0, 0.97)

@@ -157,7 +157,7 @@ export default function App() {
     if (!preset) return
     setPresetId(id)
     setSettings((current) => {
-      const next = cloneSettings(preset.apply())
+      const next = applyLookQuery(cloneSettings(preset.apply()), window.location.search)
       next.displayFps = current.displayFps
       return next
     })

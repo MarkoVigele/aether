@@ -59,4 +59,5 @@ test('look query overrides trail glow and quality', () => {
   assert.equal(next.trail, 0.93)
   assert.equal(next.glow, 0.74)
   assert.equal(next.quality, 'beautiful')
+  assert.equal(applyLookQuery(base as never, ''), base)
 })

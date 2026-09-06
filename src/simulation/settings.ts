@@ -208,7 +208,7 @@ export function defaultSettings(): SimSettings {
     flee: 0.86,
     wander: 0.22,
 
-    trail: 0.72,
+    trail: 0.9,
     glow: 0.74,
     particleSize: 2,
     sizeByEnergy: true,
