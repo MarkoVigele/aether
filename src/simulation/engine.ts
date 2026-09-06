@@ -17,6 +17,10 @@ function makeParticle(): Particle {
   return {
     x: 0,
     y: 0,
+    px: 0,
+    py: 0,
+    qx: 0,
+    qy: 0,
     vx: 0,
     vy: 0,
     ax: 0,
@@ -503,6 +507,10 @@ export class Engine {
     const p = this.acquire()
     p.x = x
     p.y = y
+    p.px = x
+    p.py = y
+    p.qx = x
+    p.qy = y
     p.type = type
     p.generation = generation
     p.mass = 0.75 + this.rng() * 0.7
@@ -529,6 +537,10 @@ export class Engine {
     const jitter = 7
     p.x = parent.x + (this.rng() - 0.5) * jitter
     p.y = parent.y + (this.rng() - 0.5) * jitter
+    p.px = p.x
+    p.py = p.y
+    p.qx = p.x
+    p.qy = p.y
     p.vx = parent.vx * 0.4 + (this.rng() - 0.5) * 20
     p.vy = parent.vy * 0.4 + (this.rng() - 0.5) * 20
     const mutateType = this.rng() < this.settings.mutationRate * 0.25

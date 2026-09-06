@@ -1,5 +1,17 @@
-import { clamp, hexToRgb } from '@/lib/utils'
+import { hexToRgb } from '@/lib/utils'
 import { PALETTES } from './palettes'
+import {
+  trailBufferScale,
+  trailCompositeBrightness,
+  trailCompositeContrast,
+  trailCoreWidth,
+  trailDeposit,
+  trailFadeAlpha,
+  trailParticleSize,
+  trailPunchByte,
+  trailSegmentOk,
+  trailVeilWidth,
+} from './trail'
 import type { Engine } from './engine'
 import type { Palette, Particle, QualityLevel, SimSettings } from './types'
 
@@ -28,12 +40,6 @@ function makeSprite(hex: string) {
   ctx.fillStyle = glow
   ctx.fillRect(0, 0, SPRITE, SPRITE)
   return canvas
-}
-
-function trailScale(quality: QualityLevel) {
-  if (quality === 'performance') return 0.55
-  if (quality === 'beautiful') return 0.9
-  return 0.72
 }
 
 export function displayDpr(quality: QualityLevel) {
@@ -69,7 +75,7 @@ export class Renderer {
   ) {
     this.palette = PALETTES[settings.palette]
 
-    const scale = trailScale(settings.quality)
+    const scale = trailBufferScale(settings.quality)
     const trailCtx = this.ensureTrail(width, height, scale)
     const tw = trailCtx.canvas.width
     const th = trailCtx.canvas.height
@@ -80,15 +86,19 @@ export class Renderer {
     trailCtx.scale(tw / width, th / height)
     trailCtx.globalCompositeOperation = 'lighter'
     const particles = engine.particles
-    for (const p of particles) this.drawParticle(trailCtx, p, settings, 1)
+    this.drawVeil(trailCtx, particles, settings)
     trailCtx.restore()
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.globalCompositeOperation = 'source-over'
     ctx.fillStyle = this.palette.background
     ctx.fillRect(0, 0, width, height)
-    // Crush leftover 8-bit haze so stalled dark pixels never show as a veil.
-    ctx.filter = 'contrast(1.4) brightness(1.03)'
+
+    const contrast = trailCompositeContrast(settings.trail)
+    const brightness = trailCompositeBrightness(settings.trail)
+    if (contrast !== 1 || brightness !== 1) {
+      ctx.filter = `contrast(${contrast}) brightness(${brightness})`
+    }
     ctx.globalCompositeOperation = 'lighter'
     ctx.drawImage(trailCtx.canvas, 0, 0, width, height)
     ctx.filter = 'none'
@@ -104,6 +114,8 @@ export class Renderer {
     ctx.globalCompositeOperation = 'source-over'
 
     if (settings.showEnergy) this.drawEnergy(ctx, particles, settings)
+
+    this.commitHistory(particles)
   }
 
   clear(ctx: CanvasRenderingContext2D, width: number, height: number, dpr: number) {
@@ -154,21 +166,89 @@ export class Renderer {
     height: number,
     trail: number,
   ) {
-    const fade = trail <= 0.01 ? 1 : clamp(1 - trail, 0.03, 1)
+    const fade = trailFadeAlpha(trail)
     trailCtx.setTransform(1, 0, 0, 1, 0, 0)
     trailCtx.globalCompositeOperation = 'source-over'
     trailCtx.fillStyle = `rgba(0,0,0,${fade})`
     trailCtx.fillRect(0, 0, width, height)
-    // 8-bit blending stalls a few levels above black. Subtract a constant so
-    // abandoned paths reach zero instead of hanging as a gray cobweb.
-    trailCtx.globalCompositeOperation = 'difference'
-    trailCtx.fillStyle = '#030303'
-    trailCtx.fillRect(0, 0, width, height)
+    const punch = trailPunchByte(trail)
+    if (punch > 0) {
+      const hex = punch.toString(16).padStart(2, '0')
+      trailCtx.globalCompositeOperation = 'difference'
+      trailCtx.fillStyle = `#${hex}${hex}${hex}`
+      trailCtx.fillRect(0, 0, width, height)
+    }
   }
 
   private colorFor(p: Particle) {
     const colors = this.palette.colors
     return colors[p.type % colors.length]
+  }
+
+  private particleSize(p: Particle, settings: SimSettings) {
+    return trailParticleSize(
+      settings.particleSize,
+      p.mass,
+      p.energy,
+      p.flash,
+      settings.glow,
+      settings.sizeByEnergy,
+    )
+  }
+
+  private drawVeil(ctx: CanvasRenderingContext2D, particles: Particle[], settings: SimSettings) {
+    if (settings.trail <= 0.01) return
+
+    const soft = settings.quality !== 'performance'
+    const deposit = trailDeposit(settings.trail)
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    for (const p of particles) {
+      const [r, g, b] = hexToRgb(this.colorFor(p))
+      const size = this.particleSize(p, settings)
+      const fromPrev = trailSegmentOk(p.px, p.py, p.x, p.y)
+      const fromOlder = soft && trailSegmentOk(p.qx, p.qy, p.px, p.py)
+      const curved = fromPrev && fromOlder
+
+      const strokePath = () => {
+        ctx.beginPath()
+        if (curved) {
+          ctx.moveTo(p.qx, p.qy)
+          ctx.quadraticCurveTo(p.px, p.py, p.x, p.y)
+        } else if (fromPrev) {
+          ctx.moveTo(p.px, p.py)
+          ctx.lineTo(p.x, p.y)
+        } else {
+          ctx.moveTo(p.x, p.y)
+          ctx.lineTo(p.x, p.y)
+        }
+        ctx.stroke()
+      }
+
+      if (soft) {
+        ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * 0.26})`
+        ctx.lineWidth = trailVeilWidth(size)
+        strokePath()
+      }
+
+      ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * (soft ? 0.52 : 0.7)})`
+      ctx.lineWidth = trailCoreWidth(size)
+      strokePath()
+    }
+
+    if (soft) {
+      for (const p of particles) this.drawParticle(ctx, p, settings, 0.38)
+    }
+  }
+
+  private commitHistory(particles: Particle[]) {
+    for (const p of particles) {
+      p.qx = p.px
+      p.qy = p.py
+      p.px = p.x
+      p.py = p.y
+    }
   }
 
   private drawParticle(
@@ -177,9 +257,7 @@ export class Renderer {
     settings: SimSettings,
     strength: number,
   ) {
-    const energyScale = settings.sizeByEnergy ? 0.62 + 0.4 * Math.min(p.energy, 1.6) : 1
-    const flash = 1 + p.flash * 0.45
-    const size = settings.particleSize * (0.7 + p.mass * 0.35) * energyScale * flash * settings.glow
+    const size = this.particleSize(p, settings)
     const sprite = this.sprite(this.colorFor(p))
     const draw = Math.max(3, size * 4.1 * strength)
     ctx.drawImage(sprite, p.x - draw / 2, p.y - draw / 2, draw, draw)
