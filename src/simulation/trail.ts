@@ -7,39 +7,63 @@ function clamp(value: number, min: number, max: number) {
 /** Skip a stroke when the particle wrapped, respawned, or jumped a huge step. */
 export const TRAIL_SEGMENT_LIMIT = 140
 
-/** Offscreen trail buffer vs. view size. Performance stays cheaper; others stay full-res. */
+/** Default Look slider. High enough for a short colored ribbon, low enough for FPS. */
+export const DEFAULT_TRAIL = 0.37
+
+/** Offscreen trail buffer vs. view size. Capped so the canvas cannot balloon. */
 export function trailBufferScale(quality: QualityLevel) {
-  if (quality === 'performance') return 0.78
-  return 1
+  if (quality === 'performance') return 0.55
+  if (quality === 'beautiful') return 0.85
+  return 0.7
+}
+
+/** Hard pixel cap for the trail canvas (width * height). */
+export function trailBufferMaxPixels(quality: QualityLevel) {
+  if (quality === 'performance') return 420_000
+  if (quality === 'beautiful') return 1_050_000
+  return 760_000
+}
+
+export function trailBufferScaleForView(
+  quality: QualityLevel,
+  width: number,
+  height: number,
+) {
+  let scale = trailBufferScale(quality)
+  const area = Math.max(1, width) * Math.max(1, height) * scale * scale
+  const max = trailBufferMaxPixels(quality)
+  if (area > max) scale *= Math.sqrt(max / area)
+  return scale
 }
 
 /**
- * Black overlay alpha each frame. High trail keeps more of the buffer so
- * ribbons persist as a veil instead of collapsing into stamp centers.
+ * Black overlay alpha each frame. Floor stays high enough that abandoned
+ * paths cannot hang as 8-bit gray fog.
  */
 export function trailFadeAlpha(trail: number) {
   if (trail <= 0.01) return 1
-  return clamp((1 - trail) ** 1.2, 0.018, 1)
+  return clamp((1 - trail) ** 1.15, 0.055, 1)
 }
 
 /**
- * Constant subtract after the fade, to kill 8-bit fog that never reaches zero.
- * High trail skips the punch so mid-tone veil pixels survive.
+ * Constant subtract after the fade. Always at least 1 so stalled 8-bit
+ * pixels reach zero. Colored mid-tones of the schleier stay above that floor.
  */
 export function trailPunchByte(trail: number) {
-  if (trail <= 0.01 || trail >= 0.68) return 0
-  if (trail < 0.38) return 3
+  if (trail <= 0.01) return 0
+  if (trail < 0.4) return 3
+  if (trail < 0.7) return 2
   return 1
 }
 
 export function trailCompositeContrast(trail: number) {
-  if (trail >= 0.68) return 1
-  if (trail < 0.35) return 1.22
-  return 1.08
+  if (trail >= 0.7) return 1
+  if (trail < 0.35) return 1.12
+  return 1.04
 }
 
-export function trailCompositeBrightness(trail: number) {
-  return trail >= 0.68 ? 1 : 1.02
+export function trailCompositeBrightness(_trail: number) {
+  return 1
 }
 
 export function trailSegmentOk(
@@ -56,7 +80,7 @@ export function trailSegmentOk(
 
 /** How much color a frame deposits. Higher trail = denser veil. */
 export function trailDeposit(trail: number) {
-  return 0.18 + clamp(trail, 0, 1) * 0.62
+  return 0.14 + clamp(trail, 0, 1) * 0.5
 }
 
 export function trailParticleSize(
@@ -73,15 +97,41 @@ export function trailParticleSize(
 }
 
 export function trailVeilWidth(size: number) {
-  return Math.max(4.2, size * 7.2)
+  return Math.max(3.6, size * 5.4)
 }
 
 export function trailMidWidth(size: number) {
-  return Math.max(2.2, size * 3.4)
+  return Math.max(2, size * 2.8)
 }
 
 export function trailCoreWidth(size: number) {
-  return Math.max(1.4, size * 1.45)
+  return Math.max(1.3, size * 1.35)
+}
+
+/** Wide faint layer only at high trail — that layer is what becomes gray fog. */
+export function trailUseVeilLayer(trail: number, quality: QualityLevel) {
+  return quality === 'beautiful' && trail >= 0.7
+}
+
+export function trailUseMidLayer(trail: number, quality: QualityLevel) {
+  if (quality === 'performance') return false
+  return trail >= 0.48
+}
+
+/** One 8-bit decay step. Used to prove gray dies while color lasts. */
+export function decayOnce(value: number, trail: number) {
+  const fade = trailFadeAlpha(trail)
+  const kept = Math.round(value * (1 - fade))
+  return Math.max(0, kept - trailPunchByte(trail))
+}
+
+export function decayStepsToZero(value: number, trail: number, maxSteps = 48) {
+  let v = value
+  for (let i = 0; i < maxSteps; i++) {
+    v = decayOnce(v, trail)
+    if (v <= 0) return i + 1
+  }
+  return maxSteps + 1
 }
 
 export function applyLookQuery(settings: SimSettings, search: string): SimSettings {

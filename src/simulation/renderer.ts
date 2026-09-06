@@ -1,8 +1,7 @@
 import { hexToRgb } from '@/lib/utils'
 import { PALETTES } from './palettes'
 import {
-  trailBufferScale,
-  trailCompositeBrightness,
+  trailBufferScaleForView,
   trailCompositeContrast,
   trailCoreWidth,
   trailDeposit,
@@ -11,6 +10,8 @@ import {
   trailParticleSize,
   trailPunchByte,
   trailSegmentOk,
+  trailUseMidLayer,
+  trailUseVeilLayer,
   trailVeilWidth,
 } from './trail'
 import type { Engine } from './engine'
@@ -76,7 +77,7 @@ export class Renderer {
   ) {
     this.palette = PALETTES[settings.palette]
 
-    const scale = trailBufferScale(settings.quality)
+    const scale = trailBufferScaleForView(settings.quality, width, height)
     const trailCtx = this.ensureTrail(width, height, scale)
     const tw = trailCtx.canvas.width
     const th = trailCtx.canvas.height
@@ -96,9 +97,8 @@ export class Renderer {
     ctx.fillRect(0, 0, width, height)
 
     const contrast = trailCompositeContrast(settings.trail)
-    const brightness = trailCompositeBrightness(settings.trail)
-    if (contrast !== 1 || brightness !== 1) {
-      ctx.filter = `contrast(${contrast}) brightness(${brightness})`
+    if (contrast !== 1) {
+      ctx.filter = `contrast(${contrast})`
     }
     ctx.globalCompositeOperation = 'lighter'
     ctx.drawImage(trailCtx.canvas, 0, 0, width, height)
@@ -201,6 +201,8 @@ export class Renderer {
     if (settings.trail <= 0.01) return
 
     const soft = settings.quality !== 'performance'
+    const useVeil = trailUseVeilLayer(settings.trail, settings.quality)
+    const useMid = trailUseMidLayer(settings.trail, settings.quality)
     const deposit = trailDeposit(settings.trail)
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
@@ -235,13 +237,15 @@ export class Renderer {
         }
       }
 
-      if (soft) {
-        ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * 0.22})`
+      if (useVeil) {
+        ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * 0.2})`
         ctx.lineWidth = trailVeilWidth(size)
         ctx.beginPath()
         addPaths()
         ctx.stroke()
-        ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * 0.4})`
+      }
+      if (useMid) {
+        ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * 0.38})`
         ctx.lineWidth = trailMidWidth(size)
         ctx.beginPath()
         addPaths()

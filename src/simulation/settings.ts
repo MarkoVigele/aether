@@ -1,4 +1,5 @@
 import { clamp, mulberry32 } from '@/lib/utils'
+import { DEFAULT_TRAIL } from './trail'
 import { isDisplayFps } from './clock'
 import type { SimSettings } from './types'
 
@@ -208,7 +209,7 @@ export function defaultSettings(): SimSettings {
     flee: 0.86,
     wander: 0.22,
 
-    trail: 0.9,
+    trail: DEFAULT_TRAIL,
     glow: 0.74,
     particleSize: 2,
     sizeByEnergy: true,

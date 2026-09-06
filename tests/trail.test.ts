@@ -2,31 +2,50 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   applyLookQuery,
+  decayStepsToZero,
+  DEFAULT_TRAIL,
+  trailBufferMaxPixels,
   trailBufferScale,
-  trailCompositeContrast,
+  trailBufferScaleForView,
   trailDeposit,
   trailFadeAlpha,
   trailPunchByte,
   trailSegmentOk,
+  trailUseMidLayer,
+  trailUseVeilLayer,
 } from '../src/simulation/trail.ts'
 
-test('performance buffer is cheaper than full-res', () => {
-  assert.equal(trailBufferScale('performance'), 0.78)
-  assert.equal(trailBufferScale('balanced'), 1)
-  assert.equal(trailBufferScale('beautiful'), 1)
+test('default trail is gentle', () => {
+  assert.equal(DEFAULT_TRAIL, 0.37)
 })
 
-test('high trail fades slowly without punch or contrast crush', () => {
+test('buffer stays below full-res and has a pixel cap', () => {
+  assert.equal(trailBufferScale('performance'), 0.55)
+  assert.equal(trailBufferScale('balanced'), 0.7)
+  assert.equal(trailBufferScale('beautiful'), 0.85)
+  assert.ok(trailBufferMaxPixels('balanced') <= 760_000)
+  const huge = trailBufferScaleForView('beautiful', 4000, 3000)
+  assert.ok(huge * 4000 * huge * 3000 <= trailBufferMaxPixels('beautiful') + 1)
+})
+
+test('gray fog dies; colored schleier outlasts it', () => {
+  assert.equal(trailPunchByte(0.37), 3)
+  assert.ok(decayStepsToZero(8, 0.37) <= 3)
+  assert.ok(decayStepsToZero(6, 0.93) <= 12)
+  assert.ok(decayStepsToZero(80, 0.93) > decayStepsToZero(6, 0.93))
+  assert.ok(decayStepsToZero(80, 0.93) >= 8)
+})
+
+test('high trail still punches and has a fade floor', () => {
   const fade = trailFadeAlpha(0.93)
-  assert.ok(fade >= 0.018 && fade <= 0.06)
-  assert.equal(trailPunchByte(0.93), 0)
-  assert.equal(trailCompositeContrast(0.93), 1)
+  assert.ok(fade >= 0.055 && fade <= 0.12)
+  assert.equal(trailPunchByte(0.93), 1)
 })
 
 test('mid trail is a short ribbon', () => {
   const fade = trailFadeAlpha(0.5)
-  assert.ok(fade >= 0.35 && fade <= 0.55)
-  assert.equal(trailPunchByte(0.5), 1)
+  assert.ok(fade >= 0.4 && fade <= 0.6)
+  assert.equal(trailPunchByte(0.5), 2)
 })
 
 test('low trail clears quickly', () => {
@@ -36,10 +55,18 @@ test('low trail clears quickly', () => {
 })
 
 test('trail slider is monotonic', () => {
-  const fades = [0.2, 0.5, 0.72, 0.93, 0.97].map(trailFadeAlpha)
+  const fades = [0.2, 0.37, 0.5, 0.72, 0.93].map(trailFadeAlpha)
   assert.deepEqual(fades, [...fades].sort((a, b) => b - a))
-  const deposits = [0.2, 0.5, 0.72, 0.93].map(trailDeposit)
+  const deposits = [0.2, 0.37, 0.72, 0.93].map(trailDeposit)
   assert.deepEqual(deposits, [...deposits].sort((a, b) => a - b))
+})
+
+test('wide veil layer only at high beautiful', () => {
+  assert.equal(trailUseVeilLayer(0.37, 'balanced'), false)
+  assert.equal(trailUseVeilLayer(0.93, 'balanced'), false)
+  assert.equal(trailUseVeilLayer(0.93, 'beautiful'), true)
+  assert.equal(trailUseMidLayer(0.37, 'balanced'), false)
+  assert.equal(trailUseMidLayer(0.6, 'balanced'), true)
 })
 
 test('wrap jumps do not connect', () => {
@@ -50,7 +77,7 @@ test('wrap jumps do not connect', () => {
 
 test('look query overrides trail glow and quality', () => {
   const base = {
-    trail: 0.72,
+    trail: 0.37,
     glow: 0.74,
     quality: 'balanced' as const,
     palette: 'aurora' as const,
