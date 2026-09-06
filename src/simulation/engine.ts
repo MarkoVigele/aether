@@ -1,9 +1,10 @@
 import { clamp, mulberry32 } from '@/lib/utils'
+import { neighborQueryCap } from './clock'
 import { MAX_PARTICLES, resizeEatMatrix, resizeMatrix } from './settings'
 import { SpatialHash } from './spatialHash'
 import type { Particle, SimSettings, SimStats } from './types'
 
-const MAX_NEIGHBORS = 42
+const MAX_NEIGHBORS = 28
 
 function interactionForce(r: number, attraction: number, beta = 0.3) {
   if (r <= 0 || r >= 1) return 0
@@ -17,6 +18,10 @@ function makeParticle(): Particle {
   return {
     x: 0,
     y: 0,
+    px: 0,
+    py: 0,
+    qx: 0,
+    qy: 0,
     vx: 0,
     vy: 0,
     ax: 0,
@@ -152,10 +157,11 @@ export class Engine {
     const perceive = s.perception
     const queryR = Math.max(radius, perceive, s.eatRadius + 8)
     const mouseR2 = s.mouseRadius * s.mouseRadius
+    const queryCap = neighborQueryCap(this.stats.fps)
 
     for (let i = 0; i < this.particles.length; i++) {
       const a = this.particles[i]
-      this.hash.query(a.x, a.y, queryR, this.query)
+      this.hash.query(a.x, a.y, queryR, this.query, queryCap)
 
       let sepX = 0
       let sepY = 0
@@ -184,10 +190,10 @@ export class Engine {
         const [dx, dy] = this.hash.delta(a.x, a.y, b.x, b.y)
         const dist2 = dx * dx + dy * dy
         if (dist2 < 1e-6) continue
-        const dist = Math.sqrt(dist2)
         const minDist = (a.radius + b.radius) * 1.15
-        const close = dist < minDist || dist < s.eatRadius
+        const close = dist2 < minDist * minDist || dist2 < s.eatRadius * s.eatRadius
         if (!close && q % stride !== 0) continue
+        const dist = Math.sqrt(dist2)
         const nx = dx / dist
         const ny = dy / dist
 
@@ -334,8 +340,9 @@ export class Engine {
         p.vy += (this.rng() - 0.5) * 2 * noise
       }
       const max = s.maxSpeed * p.speedBias
-      const spd = Math.hypot(p.vx, p.vy)
-      if (spd > max && spd > 0) {
+      const spd2 = p.vx * p.vx + p.vy * p.vy
+      if (spd2 > max * max && spd2 > 0) {
+        const spd = Math.sqrt(spd2)
         p.vx = (p.vx / spd) * max
         p.vy = (p.vy / spd) * max
       }
@@ -503,6 +510,10 @@ export class Engine {
     const p = this.acquire()
     p.x = x
     p.y = y
+    p.px = x
+    p.py = y
+    p.qx = x
+    p.qy = y
     p.type = type
     p.generation = generation
     p.mass = 0.75 + this.rng() * 0.7
@@ -529,6 +540,10 @@ export class Engine {
     const jitter = 7
     p.x = parent.x + (this.rng() - 0.5) * jitter
     p.y = parent.y + (this.rng() - 0.5) * jitter
+    p.px = p.x
+    p.py = p.y
+    p.qx = p.x
+    p.qy = p.y
     p.vx = parent.vx * 0.4 + (this.rng() - 0.5) * 20
     p.vy = parent.vy * 0.4 + (this.rng() - 0.5) * 20
     const mutateType = this.rng() < this.settings.mutationRate * 0.25

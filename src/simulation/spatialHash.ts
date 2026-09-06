@@ -1,4 +1,8 @@
 import { wrapDelta } from '@/lib/utils'
+import { MAX_NEIGHBOR_QUERY } from './clock'
+
+/** Dense herds can put hundreds in one query. Cap so physics stays bounded. */
+export const HASH_QUERY_CAP = MAX_NEIGHBOR_QUERY
 
 export class SpatialHash {
   cellSize = 64
@@ -8,6 +12,7 @@ export class SpatialHash {
   height = 1
   wrap = true
   buckets: number[][] = [[]]
+  private scratch: [number, number] = [0, 0]
 
   resize(width: number, height: number, cellSize: number, wrap: boolean) {
     this.width = Math.max(1, width)
@@ -32,21 +37,36 @@ export class SpatialHash {
     this.buckets[cy * this.cols + cx].push(index)
   }
 
-  query(x: number, y: number, radius: number, out: number[]) {
+  query(x: number, y: number, radius: number, out: number[], maxResults = HASH_QUERY_CAP) {
     out.length = 0
     const reach = Math.ceil(radius / this.cellSize)
     const cx = this.cellX(x)
     const cy = this.cellY(y)
-    for (let oy = -reach; oy <= reach; oy++) {
-      for (let ox = -reach; ox <= reach; ox++) {
-        const ix = this.wrap ? this.mod(cx + ox, this.cols) : cx + ox
-        const iy = this.wrap ? this.mod(cy + oy, this.rows) : cy + oy
-        if (ix < 0 || iy < 0 || ix >= this.cols || iy >= this.rows) continue
-        const bucket = this.buckets[iy * this.cols + ix]
-        for (let i = 0; i < bucket.length; i++) out.push(bucket[i])
+    this.collectCell(cx, cy, out, maxResults)
+    if (out.length >= maxResults) return out
+    for (let ring = 1; ring <= reach; ring++) {
+      for (let ox = -ring; ox <= ring; ox++) {
+        this.collectCell(cx + ox, cy - ring, out, maxResults)
+        if (out.length >= maxResults) return out
+        this.collectCell(cx + ox, cy + ring, out, maxResults)
+        if (out.length >= maxResults) return out
+      }
+      for (let oy = -ring + 1; oy <= ring - 1; oy++) {
+        this.collectCell(cx - ring, cy + oy, out, maxResults)
+        if (out.length >= maxResults) return out
+        this.collectCell(cx + ring, cy + oy, out, maxResults)
+        if (out.length >= maxResults) return out
       }
     }
     return out
+  }
+
+  private collectCell(ix0: number, iy0: number, out: number[], maxResults: number) {
+    const ix = this.wrap ? this.mod(ix0, this.cols) : ix0
+    const iy = this.wrap ? this.mod(iy0, this.rows) : iy0
+    if (ix < 0 || iy < 0 || ix >= this.cols || iy >= this.rows) return
+    const bucket = this.buckets[iy * this.cols + ix]
+    for (let i = 0; i < bucket.length && out.length < maxResults; i++) out.push(bucket[i])
   }
 
   delta(ax: number, ay: number, bx: number, by: number): [number, number] {
@@ -56,7 +76,9 @@ export class SpatialHash {
       dx = wrapDelta(dx, this.width)
       dy = wrapDelta(dy, this.height)
     }
-    return [dx, dy]
+    this.scratch[0] = dx
+    this.scratch[1] = dy
+    return this.scratch
   }
 
   private cellX(x: number) {

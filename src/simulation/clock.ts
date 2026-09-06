@@ -3,7 +3,35 @@ import type { DisplayFps } from './types'
 /** Simulation clock: 60 Hz fixed step. Independent of display refresh. */
 export const SIM_DT = 1 / 60
 export const MAX_FRAME_SEC = 0.25
-export const MAX_SIM_STEPS = 8
+export const MAX_SIM_STEPS = 4
+/** Dense Aurora herds can put hundreds in one cell. Hard cap keeps physics O(N). */
+export const MAX_NEIGHBOR_QUERY = 32
+
+/**
+ * Cap catch-up from the *current* frame time, not only the lagged HUD FPS.
+ * A 40ms frame must not schedule 8 physics steps or the rate locks at ~15.
+ */
+export function adaptiveMaxSimSteps(fps: number, elapsedSec = 0) {
+  if (elapsedSec > 0.042) return 2
+  if (elapsedSec > 0.032) return 3
+  if (fps > 0 && fps < 24) return 2
+  if (fps > 0 && fps < 32) return 3
+  return MAX_SIM_STEPS
+}
+
+/** Fewer neighbor tests once herds clump and the frame is already late. */
+export function neighborQueryCap(fps: number) {
+  if (fps > 0 && fps < 22) return 18
+  if (fps > 0 && fps < 28) return 24
+  return MAX_NEIGHBOR_QUERY
+}
+
+/** Skip some particle sprites when the display is struggling. Trails still draw all. */
+export function particleSpriteStep(fps: number) {
+  if (fps > 0 && fps < 22) return 3
+  if (fps > 0 && fps < 28) return 2
+  return 1
+}
 
 export function isDisplayFps(value: unknown): value is DisplayFps {
   return value === 30 || value === 60 || value === 120 || value === 'auto'

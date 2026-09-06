@@ -69,6 +69,12 @@ export type SimSettings = {
 export type Particle = {
   x: number
   y: number
+  /** Last drawn position — renderer uses this for continuous trail strokes. */
+  px: number
+  py: number
+  /** Drawn position before `px` — quadratic control for curved ribbons. */
+  qx: number
+  qy: number
   vx: number
   vy: number
   ax: number
