@@ -39,7 +39,7 @@ def trail_segment_ok(x0: float, y0: float, x1: float, y1: float, limit: float = 
 
 def trail_deposit(trail: float) -> float:
     t = min(1.0, max(trail, 0.0))
-    return 0.12 + t * 0.55
+    return 0.18 + t * 0.62
 
 
 def test_performance_buffer_is_cheaper_than_full_res() -> None:

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  applyLookQuery,
   trailBufferScale,
   trailCompositeContrast,
   trailDeposit,
@@ -45,4 +46,17 @@ test('wrap jumps do not connect', () => {
   assert.equal(trailSegmentOk(10, 10, 18, 16), true)
   assert.equal(trailSegmentOk(10, 10, 900, 16), false)
   assert.equal(trailSegmentOk(0, 0, 0, 200), false)
+})
+
+test('look query overrides trail glow and quality', () => {
+  const base = {
+    trail: 0.72,
+    glow: 0.74,
+    quality: 'balanced' as const,
+    palette: 'aurora' as const,
+  }
+  const next = applyLookQuery(base as never, '?trail=0.93&glow=0.74&quality=beautiful')
+  assert.equal(next.trail, 0.93)
+  assert.equal(next.glow, 0.74)
+  assert.equal(next.quality, 'beautiful')
 })

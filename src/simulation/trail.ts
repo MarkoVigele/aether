@@ -1,4 +1,4 @@
-import type { QualityLevel } from './types'
+import type { QualityLevel, SimSettings } from './types'
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -56,7 +56,7 @@ export function trailSegmentOk(
 
 /** How much color a frame deposits. Higher trail = denser veil. */
 export function trailDeposit(trail: number) {
-  return 0.12 + clamp(trail, 0, 1) * 0.55
+  return 0.18 + clamp(trail, 0, 1) * 0.62
 }
 
 export function trailParticleSize(
@@ -73,9 +73,37 @@ export function trailParticleSize(
 }
 
 export function trailVeilWidth(size: number) {
-  return Math.max(2.4, size * 3.8)
+  return Math.max(4.2, size * 7.2)
+}
+
+export function trailMidWidth(size: number) {
+  return Math.max(2.2, size * 3.4)
 }
 
 export function trailCoreWidth(size: number) {
-  return Math.max(1.15, size * 1.2)
+  return Math.max(1.4, size * 1.45)
+}
+
+export function applyLookQuery(settings: SimSettings, search: string): SimSettings {
+  const q = new URLSearchParams(search.startsWith('?') ? search : `?${search}`)
+  const next = { ...settings }
+  const trail = Number(q.get('trail'))
+  if (Number.isFinite(trail)) next.trail = clamp(trail, 0, 0.97)
+  const glow = Number(q.get('glow'))
+  if (Number.isFinite(glow)) next.glow = clamp(glow, 0.4, 2.2)
+  const quality = q.get('quality')
+  if (quality === 'performance' || quality === 'balanced' || quality === 'beautiful') {
+    next.quality = quality
+  }
+  const palette = q.get('palette')
+  if (
+    palette === 'aurora' ||
+    palette === 'ember' ||
+    palette === 'ocean' ||
+    palette === 'candy' ||
+    palette === 'mono'
+  ) {
+    next.palette = palette
+  }
+  return next
 }

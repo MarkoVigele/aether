@@ -23,6 +23,7 @@ import {
 } from '@/lib/persist'
 import { loadSlots } from '@/lib/saveSlots'
 import { cloneSettings, PRESETS, randomForceMatrix } from '@/simulation/settings'
+import { applyLookQuery } from '@/simulation/trail'
 import type { SimSettings, SimStats } from '@/simulation/types'
 import { PALETTES } from '@/simulation/palettes'
 import { Pause, Play, RotateCcw, SlidersHorizontal } from 'lucide-react'
@@ -50,7 +51,9 @@ function redirectToStableOrigin() {
 
 export default function App() {
   const initial = useMemo(() => loadPersisted(), [])
-  const [settings, setSettings] = useState<SimSettings>(() => initial.bundle.settings)
+  const [settings, setSettings] = useState<SimSettings>(() =>
+    applyLookQuery(initial.bundle.settings, window.location.search),
+  )
   const [paused, setPaused] = useState(false)
   const [seed, setSeed] = useState(() => (Math.random() * 1_000_000) | 0)
   const [resetKey, setResetKey] = useState(0)

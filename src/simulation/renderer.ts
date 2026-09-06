@@ -7,6 +7,7 @@ import {
   trailCoreWidth,
   trailDeposit,
   trailFadeAlpha,
+  trailMidWidth,
   trailParticleSize,
   trailPunchByte,
   trailSegmentOk,
@@ -227,18 +228,17 @@ export class Renderer {
       }
 
       if (soft) {
-        ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * 0.26})`
+        ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * 0.22})`
         ctx.lineWidth = trailVeilWidth(size)
+        strokePath()
+        ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * 0.4})`
+        ctx.lineWidth = trailMidWidth(size)
         strokePath()
       }
 
-      ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * (soft ? 0.52 : 0.7)})`
+      ctx.strokeStyle = `rgba(${r},${g},${b},${deposit * (soft ? 0.72 : 0.82)})`
       ctx.lineWidth = trailCoreWidth(size)
       strokePath()
-    }
-
-    if (soft) {
-      for (const p of particles) this.drawParticle(ctx, p, settings, 0.38)
     }
   }
 
