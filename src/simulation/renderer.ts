@@ -1,12 +1,15 @@
 import { hexToRgb } from '@/lib/utils'
+import { particleSpriteStep } from './clock'
 import { MAX_SPECIES } from './settings'
 import { PALETTES } from './palettes'
 import {
+  displayDprFor,
   trailBufferSize,
   trailCoreWidth,
   trailDeposit,
   trailFadeAlpha,
   trailMidWidth,
+  trailNeedsPunch,
   trailParticleSize,
   trailPunchByte,
   trailSegmentOk,
@@ -44,11 +47,12 @@ function makeSprite(hex: string) {
   return canvas
 }
 
+export { displayDprFor }
+
 export function displayDpr(quality: QualityLevel) {
   const raw = window.devicePixelRatio || 1
-  if (quality === 'performance') return 1
-  if (quality === 'beautiful') return Math.min(raw, 2)
-  return Math.min(raw, 1.5)
+  const narrow = typeof window !== 'undefined' && window.innerWidth < 768
+  return displayDprFor(raw, quality, narrow)
 }
 
 export class Renderer {
@@ -58,6 +62,8 @@ export class Renderer {
   private trailCtx: CanvasRenderingContext2D | null = null
   private linkQuery: number[] = []
   private veilGroups: Particle[][] = Array.from({ length: MAX_SPECIES }, () => [])
+  private punchTick = 0
+  private rgbCache = new Map<string, [number, number, number]>()
 
   sprite(hex: string) {
     let cached = this.sprites.get(hex)
@@ -102,13 +108,16 @@ export class Renderer {
     ctx.drawImage(trailCtx.canvas, 0, 0, width, height)
 
     ctx.globalCompositeOperation = 'source-over'
-    const fpsOk = engine.stats.fps > 26 || engine.stats.fps === 0
+    const fpsOk = engine.stats.fps > 32 || engine.stats.fps === 0
     if (settings.showLinks && fpsOk && settings.quality !== 'performance') {
       this.drawLinks(ctx, engine, settings, particles)
     }
 
     ctx.globalCompositeOperation = 'lighter'
-    for (const p of particles) this.drawParticle(ctx, p, settings, 0.42)
+    const spriteStep = particleSpriteStep(engine.stats.fps)
+    for (let i = 0; i < particles.length; i += spriteStep) {
+      this.drawParticle(ctx, particles[i], settings, 0.42)
+    }
     ctx.globalCompositeOperation = 'source-over'
 
     if (settings.showEnergy) this.drawEnergy(ctx, particles, settings)
@@ -137,6 +146,8 @@ export class Renderer {
     this.trail = null
     this.trailCtx = null
     this.linkQuery.length = 0
+    this.rgbCache.clear()
+    this.punchTick = 0
     for (const group of this.veilGroups) group.length = 0
   }
 
@@ -168,8 +179,11 @@ export class Renderer {
     trailCtx.globalCompositeOperation = 'source-over'
     trailCtx.fillStyle = `rgba(0,0,0,${fade})`
     trailCtx.fillRect(0, 0, width, height)
+    this.punchTick++
     const punch = trailPunchByte(trail)
-    if (punch > 0) {
+    // High trail still punches; default 0.37 fade already kills 1-byte gray.
+    const punchNow = trailNeedsPunch(trail) && (trail >= 0.55 || this.punchTick % 2 === 0)
+    if (punchNow) {
       const hex = punch.toString(16).padStart(2, '0')
       trailCtx.globalCompositeOperation = 'difference'
       trailCtx.fillStyle = `#${hex}${hex}${hex}`
@@ -180,6 +194,15 @@ export class Renderer {
   private colorFor(p: Particle) {
     const colors = this.palette.colors
     return colors[p.type % colors.length]
+  }
+
+  private rgb(hex: string) {
+    let cached = this.rgbCache.get(hex)
+    if (!cached) {
+      cached = hexToRgb(hex)
+      this.rgbCache.set(hex, cached)
+    }
+    return cached
   }
 
   private particleSize(p: Particle, settings: SimSettings) {
@@ -212,15 +235,16 @@ export class Renderer {
 
     for (const group of groups) {
       if (!group?.length) continue
-      const [r, g, b] = hexToRgb(this.colorFor(group[0]))
+      const [r, g, b] = this.rgb(this.colorFor(group[0]))
       let sizeSum = 0
       for (const p of group) sizeSum += this.particleSize(p, settings)
       const size = sizeSum / group.length
+      const curve = soft && (useMid || useVeil)
 
       const addPaths = () => {
         for (const p of group) {
           const fromPrev = trailSegmentOk(p.px, p.py, p.x, p.y)
-          const fromOlder = soft && trailSegmentOk(p.qx, p.qy, p.px, p.py)
+          const fromOlder = curve && trailSegmentOk(p.qx, p.qy, p.px, p.py)
           if (fromPrev && fromOlder) {
             ctx.moveTo(p.qx, p.qy)
             ctx.quadraticCurveTo(p.px, p.py, p.x, p.y)
@@ -302,7 +326,7 @@ export class Renderer {
         const d2 = dx * dx + dy * dy
         if (d2 > max2 || d2 < 4) continue
         const t = 1 - Math.sqrt(d2) / max
-        const [r, g, bl] = hexToRgb(this.colorFor(a))
+        const [r, g, bl] = this.rgb(this.colorFor(a))
         ctx.strokeStyle = `rgba(${r},${g},${bl},${t * 0.14})`
         ctx.beginPath()
         ctx.moveTo(a.x, a.y)
@@ -316,7 +340,7 @@ export class Renderer {
   private drawEnergy(ctx: CanvasRenderingContext2D, particles: Particle[], settings: SimSettings) {
     ctx.lineWidth = 1
     for (const p of particles) {
-      const [r, g, b] = hexToRgb(this.colorFor(p))
+      const [r, g, b] = this.rgb(this.colorFor(p))
       const radius = settings.particleSize * 2.1 + Math.min(p.energy, 2) * 2.4
       ctx.strokeStyle = `rgba(${r},${g},${b},${0.16 + Math.min(p.energy, 1) * 0.22})`
       ctx.beginPath()

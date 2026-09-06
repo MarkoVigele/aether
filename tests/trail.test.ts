@@ -1,16 +1,22 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { adaptiveMaxSimSteps } from '../src/simulation/clock.ts'
+import {
+  adaptiveMaxSimSteps,
+  neighborQueryCap,
+  particleSpriteStep,
+} from '../src/simulation/clock.ts'
 import {
   applyLookQuery,
   decayStepsToZero,
   DEFAULT_TRAIL,
+  displayDprFor,
   trailBufferMaxPixels,
   trailBufferScale,
   trailBufferScaleForView,
   trailBufferSize,
   trailDeposit,
   trailFadeAlpha,
+  trailNeedsPunch,
   trailPunchByte,
   trailSegmentOk,
   trailUseMidLayer,
@@ -22,10 +28,10 @@ test('default trail is gentle', () => {
 })
 
 test('buffer stays below full-res and has a pixel cap', () => {
-  assert.equal(trailBufferScale('performance'), 0.55)
-  assert.equal(trailBufferScale('balanced'), 0.7)
-  assert.equal(trailBufferScale('beautiful'), 0.85)
-  assert.ok(trailBufferMaxPixels('balanced') <= 760_000)
+  assert.equal(trailBufferScale('performance'), 0.48)
+  assert.equal(trailBufferScale('balanced'), 0.56)
+  assert.equal(trailBufferScale('beautiful'), 0.72)
+  assert.ok(trailBufferMaxPixels('balanced') <= 400_000)
   const huge = trailBufferScaleForView('beautiful', 4000, 3000)
   assert.ok(huge * 4000 * huge * 3000 <= trailBufferMaxPixels('beautiful') + 1)
   const a = trailBufferSize('balanced', 800, 600)
@@ -33,11 +39,42 @@ test('buffer stays below full-res and has a pixel cap', () => {
   assert.deepEqual(a, b)
 })
 
+test('phone dpr stays at 1', () => {
+  assert.equal(displayDprFor(3, 'balanced', true), 1)
+  assert.equal(displayDprFor(2, 'balanced', false), 1.25)
+})
+
 test('late frames do not catch up with eight sim steps', () => {
-  assert.equal(adaptiveMaxSimSteps(0), 8)
-  assert.equal(adaptiveMaxSimSteps(60), 8)
+  assert.equal(adaptiveMaxSimSteps(0), 4)
+  assert.equal(adaptiveMaxSimSteps(60), 4)
+  assert.equal(adaptiveMaxSimSteps(30, 0.05), 2)
   assert.equal(adaptiveMaxSimSteps(24), 3)
   assert.equal(adaptiveMaxSimSteps(12), 2)
+})
+
+test('herd neighbor queries stay capped as flocks form', () => {
+  assert.equal(neighborQueryCap(0), 32)
+  assert.equal(neighborQueryCap(60), 32)
+  assert.equal(neighborQueryCap(26), 24)
+  assert.equal(neighborQueryCap(18), 18)
+  assert.ok(neighborQueryCap(18) < neighborQueryCap(60))
+})
+
+test('sprites thin only when the display is already late', () => {
+  assert.equal(particleSpriteStep(0), 1)
+  assert.equal(particleSpriteStep(40), 1)
+  assert.equal(particleSpriteStep(26), 2)
+  assert.equal(particleSpriteStep(18), 3)
+})
+
+test('default fade kills gray without a difference punch', () => {
+  assert.equal(trailNeedsPunch(0.37), false)
+  assert.equal(trailNeedsPunch(0.93), true)
+  let v = 8
+  for (let i = 0; i < 6; i++) {
+    v = Math.round(v * (1 - trailFadeAlpha(0.37)))
+  }
+  assert.equal(v, 0)
 })
 
 test('gray fog dies; colored schleier outlasts it', () => {

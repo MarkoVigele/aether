@@ -11,17 +11,24 @@ export const TRAIL_SEGMENT_LIMIT = 140
 export const DEFAULT_TRAIL = 0.37
 
 /** Offscreen trail buffer vs. view size. Capped so the canvas cannot balloon. */
+/** Main-canvas DPR. Phone stays at 1; desktop balanced caps at 1.25. */
+export function displayDprFor(raw: number, quality: QualityLevel, narrow: boolean) {
+  if (quality === 'performance' || narrow) return 1
+  if (quality === 'beautiful') return Math.min(raw, 1.5)
+  return Math.min(raw, 1.25)
+}
+
 export function trailBufferScale(quality: QualityLevel) {
-  if (quality === 'performance') return 0.55
-  if (quality === 'beautiful') return 0.85
-  return 0.7
+  if (quality === 'performance') return 0.48
+  if (quality === 'beautiful') return 0.72
+  return 0.56
 }
 
 /** Hard pixel cap for the trail canvas (width * height). */
 export function trailBufferMaxPixels(quality: QualityLevel) {
-  if (quality === 'performance') return 420_000
-  if (quality === 'beautiful') return 1_050_000
-  return 760_000
+  if (quality === 'performance') return 260_000
+  if (quality === 'beautiful') return 620_000
+  return 400_000
 }
 
 export function trailBufferScaleForView(
@@ -67,6 +74,14 @@ export function trailPunchByte(trail: number) {
   if (trail < 0.4) return 3
   if (trail < 0.7) return 2
   return 1
+}
+
+/**
+ * Difference-punch is only needed when fade leaves 1-byte gray stuck.
+ * At default 0.37 the fade already drives 1 → 0, so skip the extra GPU pass.
+ */
+export function trailNeedsPunch(trail: number) {
+  return trailPunchByte(trail) > 0 && trailFadeAlpha(trail) < 0.5
 }
 
 export function trailSegmentOk(

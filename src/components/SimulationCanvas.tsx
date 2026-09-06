@@ -66,6 +66,9 @@ export function SimulationCanvas({
     let viewH = 1
     let viewDpr = 1
 
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })
+    if (!ctx) return
+
     const resize = () => {
       const rect = wrap.getBoundingClientRect()
       const dpr = displayDpr(settingsRef.current.quality)
@@ -82,16 +85,12 @@ export function SimulationCanvas({
       canvas.height = nextH
       canvas.style.width = `${width}px`
       canvas.style.height = `${height}px`
-      const nextCtx = canvas.getContext('2d')
-      if (nextCtx) renderer.clear(nextCtx, width, height, dpr)
+      renderer.clear(ctx, width, height, dpr)
     }
 
     resizeRef.current = resize
     resize()
     engine.reset(seed)
-
-    const ctx = canvas.getContext('2d', { alpha: false })
-    if (!ctx) return
 
     let last = performance.now()
     let acc = 0
@@ -99,7 +98,6 @@ export function SimulationCanvas({
     let draws = 0
     let fpsStamp = last
     let raf = 0
-    let statsTick = 0
 
     const loop = (now: number) => {
       const elapsed = (now - last) / 1000
@@ -108,7 +106,7 @@ export function SimulationCanvas({
 
       if (!pausedRef.current) {
         acc = ingestSimTime(acc, elapsed, settings.timeScale)
-        const taken = takeSimSteps(acc, SIM_DT, adaptiveMaxSimSteps(engine.stats.fps))
+        const taken = takeSimSteps(acc, SIM_DT, adaptiveMaxSimSteps(engine.stats.fps, elapsed))
         acc = taken.acc
         for (let i = 0; i < taken.steps; i++) engine.step(SIM_DT)
       }
@@ -124,13 +122,10 @@ export function SimulationCanvas({
         }
       }
 
-      statsTick++
-      if (now - fpsStamp > 400) {
+      if (now - fpsStamp > 500) {
         engine.stats.fps = (draws * 1000) / (now - fpsStamp)
         draws = 0
         fpsStamp = now
-        onStatsRef.current({ ...engine.stats })
-      } else if (statsTick % 20 === 0) {
         onStatsRef.current({ ...engine.stats })
       }
 

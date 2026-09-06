@@ -8,18 +8,18 @@ DEFAULT_TRAIL = 0.37
 
 def trail_buffer_scale(quality: str) -> float:
     if quality == "performance":
-        return 0.55
+        return 0.48
     if quality == "beautiful":
-        return 0.85
-    return 0.7
+        return 0.72
+    return 0.56
 
 
 def trail_buffer_max_pixels(quality: str) -> int:
     if quality == "performance":
-        return 420_000
+        return 260_000
     if quality == "beautiful":
-        return 1_050_000
-    return 760_000
+        return 620_000
+    return 400_000
 
 
 def trail_fade_alpha(trail: float) -> float:
@@ -68,12 +68,36 @@ def trail_use_mid_layer(trail: float, quality: str) -> bool:
     return trail >= 0.48
 
 
-def adaptive_max_sim_steps(fps: float) -> int:
-    if fps > 0 and fps < 18:
+def adaptive_max_sim_steps(fps: float, elapsed: float = 0.0) -> int:
+    if elapsed > 0.042:
         return 2
-    if fps > 0 and fps < 26:
+    if elapsed > 0.032:
         return 3
-    return 8
+    if fps > 0 and fps < 24:
+        return 2
+    if fps > 0 and fps < 32:
+        return 3
+    return 4
+
+
+def neighbor_query_cap(fps: float) -> int:
+    if fps > 0 and fps < 22:
+        return 18
+    if fps > 0 and fps < 28:
+        return 24
+    return 32
+
+
+def particle_sprite_step(fps: float) -> int:
+    if fps > 0 and fps < 22:
+        return 3
+    if fps > 0 and fps < 28:
+        return 2
+    return 1
+
+
+def trail_needs_punch(trail: float) -> bool:
+    return trail_punch_byte(trail) > 0 and trail_fade_alpha(trail) < 0.5
 
 
 def test_default_trail_is_gentle() -> None:
@@ -85,11 +109,11 @@ def snap_trail_dim(n: float) -> int:
 
 
 def test_buffer_is_capped_below_full_res() -> None:
-    assert trail_buffer_scale("performance") == 0.55
-    assert trail_buffer_scale("balanced") == 0.7
-    assert trail_buffer_scale("beautiful") == 0.85
-    assert trail_buffer_max_pixels("balanced") <= 760_000
-    assert snap_trail_dim(800 * 0.7) == snap_trail_dim(803 * 0.7)
+    assert trail_buffer_scale("performance") == 0.48
+    assert trail_buffer_scale("balanced") == 0.56
+    assert trail_buffer_scale("beautiful") == 0.72
+    assert trail_buffer_max_pixels("balanced") <= 400_000
+    assert snap_trail_dim(800 * 0.56) == snap_trail_dim(803 * 0.56)
 
 
 def test_default_trail_clears_gray_fog() -> None:
@@ -131,10 +155,33 @@ def test_slider_is_monotonic() -> None:
 
 
 def test_late_frames_do_not_catch_up_with_eight_sim_steps() -> None:
-    assert adaptive_max_sim_steps(0) == 8
-    assert adaptive_max_sim_steps(60) == 8
+    assert adaptive_max_sim_steps(0) == 4
+    assert adaptive_max_sim_steps(60) == 4
+    assert adaptive_max_sim_steps(30, 0.05) == 2
     assert adaptive_max_sim_steps(24) == 3
     assert adaptive_max_sim_steps(12) == 2
+
+
+def test_herd_neighbor_queries_stay_capped() -> None:
+    assert neighbor_query_cap(0) == 32
+    assert neighbor_query_cap(60) == 32
+    assert neighbor_query_cap(26) == 24
+    assert neighbor_query_cap(18) == 18
+
+
+def test_sprites_thin_only_when_late() -> None:
+    assert particle_sprite_step(40) == 1
+    assert particle_sprite_step(26) == 2
+    assert particle_sprite_step(18) == 3
+
+
+def test_default_fade_kills_gray_without_punch() -> None:
+    assert trail_needs_punch(0.37) is False
+    assert trail_needs_punch(0.93) is True
+    v = 8
+    for _ in range(6):
+        v = round(v * (1.0 - trail_fade_alpha(0.37)))
+    assert v == 0
 
 
 def test_wrap_and_respawn_do_not_draw_a_screen_wide_stroke() -> None:
