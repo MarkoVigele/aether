@@ -12,7 +12,7 @@ import { clearSlot, loadSlots, writeSlot, type SaveSlot } from '@/lib/saveSlots'
 import { paletteList } from '@/simulation/palettes'
 import type { PaletteId, SimSettings } from '@/simulation/types'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { stageTranslate, useSnapSheet, type SheetStage } from '@/lib/sheetDrag'
+import { clearSheetPaint, paintSheetStage, useSnapSheet, type SheetStage } from '@/lib/sheetDrag'
 import { DisplayFpsField } from './DisplayFpsField'
 import { SliderRow } from './SliderRow'
 import { ToggleRow } from './ToggleRow'
@@ -72,11 +72,13 @@ export function GameMenu({
   const sheetDrag = useSnapSheet(dragEnabled, stage, onStage)
 
   useEffect(() => {
-    if (!dragEnabled || sheetDrag.dragging) return
     const node = sheetDrag.sheetRef.current
-    if (!node) return
-    node.style.transition = 'transform 300ms'
-    node.style.transform = stageTranslate(stage)
+    if (!dragEnabled) {
+      clearSheetPaint(node)
+      return
+    }
+    if (sheetDrag.dragging) return
+    paintSheetStage(node, stage)
   }, [dragEnabled, sheetDrag.dragging, sheetDrag.sheetRef, stage])
 
   return (

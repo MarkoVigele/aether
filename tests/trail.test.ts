@@ -137,3 +137,32 @@ test('look query overrides trail glow and quality', () => {
   assert.equal(next.quality, 'beautiful')
   assert.equal(applyLookQuery(base as never, ''), base)
 })
+
+test('look query only touches keys that are actually in the URL', () => {
+  const base = {
+    trail: 0.37,
+    glow: 0.74,
+    quality: 'balanced' as const,
+    palette: 'aurora' as const,
+  }
+  const qualityOnly = applyLookQuery(base as never, '?quality=beautiful')
+  assert.equal(qualityOnly.trail, 0.37)
+  assert.equal(qualityOnly.glow, 0.74)
+  assert.equal(qualityOnly.quality, 'beautiful')
+
+  const trailOnly = applyLookQuery({ ...base, glow: 0.9 } as never, '?trail=0.50')
+  assert.equal(trailOnly.trail, 0.5)
+  assert.equal(trailOnly.glow, 0.9)
+
+  const presetThenTrail = applyLookQuery({ ...base, trail: 0.7, glow: 0.7 } as never, '?trail=0.50')
+  assert.equal(presetThenTrail.trail, 0.5)
+  assert.equal(presetThenTrail.glow, 0.7)
+
+  const emptyTrail = applyLookQuery({ ...base, trail: 0.7 } as never, '?trail=')
+  assert.equal(emptyTrail.trail, 0.7)
+
+  const paletteOnly = applyLookQuery(base as never, '?palette=ember')
+  assert.equal(paletteOnly.trail, 0.37)
+  assert.equal(paletteOnly.glow, 0.74)
+  assert.equal(paletteOnly.palette, 'ember')
+})
