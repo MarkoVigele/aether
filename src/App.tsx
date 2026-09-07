@@ -13,7 +13,7 @@ import { Hud } from '@/components/Hud'
 import { SimulationCanvas } from '@/components/SimulationCanvas'
 import { Button } from '@/components/ui/button'
 import { isNarrowViewport, useIsNarrow } from '@/lib/media'
-import { stageTranslate, useSnapSheet, type SheetStage } from '@/lib/sheetDrag'
+import { clearSheetPaint, paintSheetStage, useSnapSheet, type SheetStage } from '@/lib/sheetDrag'
 import {
   exportPersistedJson,
   loadPersisted,
@@ -100,11 +100,13 @@ export default function App() {
   const sheetDrag = useSnapSheet(narrow && sheetStage !== 'closed', sheetStage, onSheetStage)
 
   useEffect(() => {
-    if (!narrow || sheetDrag.dragging) return
     const node = sheetDrag.sheetRef.current
-    if (!node) return
-    node.style.transition = 'transform 300ms'
-    node.style.transform = stageTranslate(sheetStage)
+    if (!narrow) {
+      clearSheetPaint(node)
+      return
+    }
+    if (sheetDrag.dragging) return
+    paintSheetStage(node, sheetStage)
   }, [narrow, sheetDrag.dragging, sheetDrag.sheetRef, sheetStage])
 
   const bg = useMemo(() => PALETTES[settings.palette].background, [settings.palette])

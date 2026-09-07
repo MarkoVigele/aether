@@ -152,15 +152,24 @@ export function decayStepsToZero(value: number, trail: number, maxSteps = 48) {
   return maxSteps + 1
 }
 
+/** Missing query keys must not parse as 0 (`Number(null)`). Empty values are ignored. */
+function queryNumber(q: URLSearchParams, key: string): number | null {
+  if (!q.has(key)) return null
+  const raw = q.get(key)
+  if (raw == null || raw.trim() === '') return null
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : null
+}
+
 export function applyLookQuery(settings: SimSettings, search: string): SimSettings {
   if (!search || search === '?') return settings
   const q = new URLSearchParams(search.startsWith('?') ? search : `?${search}`)
   if (!q.has('trail') && !q.has('glow') && !q.has('quality') && !q.has('palette')) return settings
   const next = { ...settings }
-  const trail = Number(q.get('trail'))
-  if (Number.isFinite(trail)) next.trail = clamp(trail, 0, 0.97)
-  const glow = Number(q.get('glow'))
-  if (Number.isFinite(glow)) next.glow = clamp(glow, 0.4, 2.2)
+  const trail = queryNumber(q, 'trail')
+  if (trail != null) next.trail = clamp(trail, 0, 0.97)
+  const glow = queryNumber(q, 'glow')
+  if (glow != null) next.glow = clamp(glow, 0.4, 2.2)
   const quality = q.get('quality')
   if (quality === 'performance' || quality === 'balanced' || quality === 'beautiful') {
     next.quality = quality

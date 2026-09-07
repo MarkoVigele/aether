@@ -17,6 +17,19 @@ export function stageTranslate(stage: SheetStage) {
   return 'translateY(0px)'
 }
 
+export function paintSheetStage(node: HTMLElement | null, stage: SheetStage) {
+  if (!node) return
+  node.style.transition = 'transform 300ms'
+  node.style.transform = stageTranslate(stage)
+}
+
+/** Desktop uses Tailwind translate-x. Leftover translateY hides the sidebar below the view. */
+export function clearSheetPaint(node: HTMLElement | null) {
+  if (!node) return
+  node.style.transition = ''
+  node.style.transform = ''
+}
+
 function measureLift(node: HTMLElement) {
   const rect = node.getBoundingClientRect()
   const high = rect.height
@@ -58,11 +71,7 @@ export function useSnapSheet(
   onStageRef.current = onStage
 
   const applyStage = useCallback((next: SheetStage) => {
-    const node = sheetRef.current
-    if (node) {
-      node.style.transition = 'transform 300ms'
-      node.style.transform = stageTranslate(next)
-    }
+    paintSheetStage(sheetRef.current, next)
     onStageRef.current(next)
   }, [])
 
