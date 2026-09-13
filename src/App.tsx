@@ -8,6 +8,7 @@ import {
   type Ref,
 } from 'react'
 import { ControlPanel, makeRandomForces } from '@/components/ControlPanel'
+import { DonateChip } from '@/components/DonateChip'
 import { GameMenu } from '@/components/GameMenu'
 import { Hud } from '@/components/Hud'
 import { SimulationCanvas } from '@/components/SimulationCanvas'
@@ -250,6 +251,8 @@ export default function App() {
       />
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(0,0,0,0.55)_100%)]" />
+
+      <DonateChip />
 
       {notice ? (
         <div className="absolute inset-x-0 top-0 z-40 flex justify-center p-3 pt-20">
